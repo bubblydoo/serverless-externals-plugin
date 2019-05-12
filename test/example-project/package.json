@@ -1,0 +1,20 @@
+{
+  "name": "serverless-externals-plugin-example-project",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "rollup -c",
+    "prepare-tests": "npm run build && sls package"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.453.0",
+    "is-number": "^7.0.0",
+    "is-object": "^1.0.1",
+    "is-string": "^1.0.4"
+  },
+  "devDependencies": {
+    "is-array": "^1.0.1",
+    "rollup": "^1.11.3",
+    "rollup-plugin-commonjs": "^9.3.4",
+    "rollup-plugin-node-resolve": "^4.2.4"
+  }
+}

@@ -1,0 +1,30 @@
+service: serverless-externals-plugin-example-project 
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+
+plugins:
+  localPath: '../../..'
+  modules:
+    - serverless-externals-plugin
+
+custom:
+  externals:
+    modules:
+      - is-object
+    exclude:
+      - aws-sdk
+
+functions:
+  index:
+    handler: handler.index
+
+package:
+  excludeDevDependencies: false
+  individually: true
+  include:
+    - handler.js
+  exclude:
+    - ./**
+
