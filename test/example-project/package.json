@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "build": "rollup -c",
-    "prepare-tests": "npm run build && sls package"
+    "prepare-tests": "npm i && npm run build && sls package"
   },
   "dependencies": {
     "aws-sdk": "^2.453.0",
