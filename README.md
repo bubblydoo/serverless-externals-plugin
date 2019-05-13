@@ -11,6 +11,10 @@ If there's a global module available (like `aws-sdk`), you can exclude it from t
 
 See [test/example-project](test/example-project) for a typical project.
 
+### Motivation
+
+I wanted to include Cheerio/JSDom and AWS SDK in a Typescript project, but neither could be bundled because of obscure errors, so they needed to be external. To reduce package size, I didn't want to make every module external. Manually looking up a module and adding its dependencies to `rollup.config.js` and `serverless.yml` is simply too much work. This plugin makes this much easier.
+
 ### Typical configuration
 
 `serverless.yml`:
@@ -60,6 +64,36 @@ module.exports = async function() {
   }
 };
 ```
+
+### Advanced
+
+#### `node-externals.json`
+
+If you don't like adding a `node-externals.json` file, you can pass a list of module names to the `externals` function:
+
+```javascript
+externals(__dirname, ['is-object'])
+```
+
+And declare a list of modules in `serverless.yml`:
+
+```yml
+custom:
+  externals:
+    modules:
+      - is-object
+```
+
+#### Config
+
+The `externals` function takes a third argument object, `config`.
+
+Key               | Default                                           | Description
+--- | --- | ---
+externalsFilePath | `path.join(root, 'node-externals.json')`          | Path to `node-externals.json`
+packagePath       | `path.join(root, 'package.json')`                 | Path to your `package.json`
+exclude           | `[]`                                              | Filters values from `node-externals.json` (perfect for globally installed modules)
+ls                | `{development: true, optional: true, peer: true}` | Passed to `npm-remote-ls`
 
 ### Testing
 
