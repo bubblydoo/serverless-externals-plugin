@@ -1,7 +1,7 @@
 {
   "name": "serverless-externals-plugin",
   "version": "0.0.2",
-  "description": "Only include listed node modules and their dependencies in Serverless, with support for Rollup, Webpack and Parcel",
+  "description": "Only include listed node modules and their dependencies in Serverless, with support for Rollup and Webpack",
   "main": "plugin.js",
   "repository": {
     "type": "git",
@@ -14,6 +14,15 @@
     "plugin.js",
     "README.md",
     "LICENSE"
+  ],
+  "keywords": [
+    "serverless",
+    "serverless plugins",
+    "node",
+    "rollup",
+    "webpack",
+    "external",
+    "externals"
   ],
   "author": "Hans Otto Wirtz <hansottowirtz@gmail.com>",
   "license": "MIT",
