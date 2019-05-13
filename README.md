@@ -1,5 +1,7 @@
 # Serverless Externals Plugin
 
+[![Build Status](https://travis-ci.org/hansottowirtz/serverless-externals-plugin.svg?branch=master)](https://travis-ci.org/hansottowirtz/serverless-externals-plugin)
+
 This plugin was made for Serverless builds that use Rollup or Webpack. It does two things:
 
 - It generates a list of external modules for Rollup/Webpack (should be kept as `require()` in bundle)
