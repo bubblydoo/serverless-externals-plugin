@@ -1,6 +1,6 @@
 const commonjs = require('rollup-plugin-commonjs');
 const resolve = require('rollup-plugin-node-resolve');
-const externals = require('../..').externals;
+const externals = require('../..').externalsRollup;
 
 module.exports = async function() {
   return {
@@ -15,6 +15,6 @@ module.exports = async function() {
       resolve(),
       commonjs()
     ],
-    external: (await externals(__dirname)).concat(['is-object'])
+    external: await externals(__dirname)
   }
 };

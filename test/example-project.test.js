@@ -64,6 +64,7 @@ test('handler has correct require statements', () => {
   const contents = fs.readFileSync(handlerFilePath, 'utf-8');
 
   expect(contents).toMatch(/require\('aws-sdk'\)/);
+  expect(contents).toMatch(/require\('aws-sdk\/clients\/s3'\)/);
   expect(contents).not.toMatch(/require\('is-array'\)/);
   expect(contents).toMatch(/require\('is-string'\)/);
   expect(contents).toMatch(/require\('is-object'\)/);

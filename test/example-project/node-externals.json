@@ -1,1 +1,1 @@
-["is-string", "aws-sdk"]
+["is-string", "aws-sdk", "is-object"]

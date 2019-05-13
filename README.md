@@ -41,7 +41,7 @@ custom:
 
 `rollup.config.js` (if you're using Rollup):
 ```javascript
-const externals = require('serverless-externals-plugin').externals;
+const externals = require('serverless-externals-plugin').externalsRollup;
 
 module.exports = async function() {
   return {

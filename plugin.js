@@ -26,7 +26,7 @@ class ExternalsPlugin {
 
     if (typeof service.custom.externals === 'object' && service.custom.externals.constructor === Array) {
       externals = externals.concat(service.custom.externals);
-    } else {
+    } else if (service.custom.externals.modules) {
       externals = externals.concat(service.custom.externals.modules);
     }
 
@@ -104,12 +104,15 @@ ExternalsPlugin.externals = async function(root, externals, config) {
 }
 
 ExternalsPlugin.externalsWebpack = async function(root, externals, config) {
-  const array = ExternalsPlugin.externals(root, externals, config);
+  const array = await ExternalsPlugin.externals(root, externals, config);
   const object = {};
-  array.forEach(e => {
-    object[e] = `commonjs ${e}`;
-  });
+  array.forEach(e => object[e] = `commonjs ${e}`);
   return object;
+}
+
+ExternalsPlugin.externalsRollup = async function(root, externals, config) {
+  const array = await ExternalsPlugin.externals(root, externals, config);
+  return query => !!array.find(name => name === query || query.startsWith(`${name}/`));
 }
 
 module.exports = ExternalsPlugin;
