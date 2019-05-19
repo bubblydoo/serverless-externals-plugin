@@ -19,24 +19,31 @@ class ExternalsPlugin {
     
     service.package = service.package || {};
     service.package.exclude = service.package.exclude || [];
-    service.custom = service.custom || {};
+    service.package.include = service.package.include || [];
 
     let externalsFile;
     let externals = [];
 
-    if (typeof service.custom.externals === 'object' && service.custom.externals.constructor === Array) {
-      externals = externals.concat(service.custom.externals);
-    } else if (service.custom.externals.modules) {
-      externals = externals.concat(service.custom.externals.modules);
+    const settings = service.custom && service.custom.externals ? service.custom.externals : {};
+
+    if (typeof settings === 'object' && settings.constructor === Array) {
+      externals = externals.concat(settings);
+    } else if (settings.modules) {
+      externals = externals.concat(settings.modules);
     }
 
-    externalsFile = service.custom.externals.file || externalsFile;
-    const exclude = service.custom.externals.exclude || [];
+    externalsFile = settings.file || externalsFile;
+    const exclude = settings.exclude || [];
 
     const allExternals = await ExternalsPlugin.externals(this.serverless.config.servicePath, externals, {exclude});
 
     allExternals.forEach(external => {
-      service.package.exclude.push(`!./node_modules/${external}/**`);
+      const subpath = settings.moduleSubpaths && settings.moduleSubpaths[external] ? settings.moduleSubpaths[external] : '**';
+      if (settings.useInclude) {
+        service.package.include.push(`./node_modules/${external}/${subpath}`);
+      } else {
+        service.package.exclude.push(`!./node_modules/${external}/${subpath}`);
+      }
     });
   }
 }
