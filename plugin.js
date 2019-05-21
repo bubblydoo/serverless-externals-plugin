@@ -69,7 +69,8 @@ ExternalsPlugin.externals = async function(root, externals, config) {
 
   const pkg = require(packagePath);
  
-  if (!externals || !externals.length) throw new Error('No externals listed');
+  if (!externals || (!externals.length && !config.exclude)) throw new Error('No externals listed');
+  debugger;
 
   let allExternals = [].concat(externals);
 
