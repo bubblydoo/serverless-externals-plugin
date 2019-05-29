@@ -58,12 +58,10 @@ module.exports = async function() {
 ```javascript
 const externals = require('serverless-externals-plugin').externalsWebpack;
 
-module.exports = async function() {
-  return {
-    entry: 'src/main.js',
-    ...
-    externals: await externals(__dirname)
-  }
+module.exports = {
+  entry: 'src/main.js',
+  ...
+  externals: externals(__dirname)
 };
 ```
 

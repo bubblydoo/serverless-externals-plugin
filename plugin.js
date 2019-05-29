@@ -111,11 +111,19 @@ ExternalsPlugin.externals = async function(root, externals, config) {
   return allExternals;
 }
 
-ExternalsPlugin.externalsWebpack = async function(root, externals, config) {
-  const array = await ExternalsPlugin.externals(root, externals, config);
-  const object = {};
-  array.forEach(e => object[e] = `commonjs ${e}`);
-  return object;
+ExternalsPlugin.externalsWebpack = function(root, externals, config) {
+  const promise = ExternalsPlugin.externals(root, externals, config);
+
+  return (context, query, callback) => {
+    promise.then(array => {
+      const found = !!array.find(name => name === query || query.startsWith(`${name}/`));
+      found ? callback(null, `commonjs ${query}`) : callback();
+    });
+    promise.catch(err => {
+      console.warn('Error retrieving externals', err);
+      callback(`Error retrieving externals: ${err}`);
+    });
+  }
 }
 
 ExternalsPlugin.externalsRollup = async function(root, externals, config) {
