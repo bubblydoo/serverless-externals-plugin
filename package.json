@@ -1,6 +1,6 @@
 {
   "name": "serverless-externals-plugin",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Only include listed node modules and their dependencies in Serverless, with support for Rollup and Webpack",
   "main": "plugin.js",
   "repository": {
@@ -34,8 +34,8 @@
     "npm-remote-ls": "^1.3.2"
   },
   "devDependencies": {
-    "@types/jest": "^24.0.12",
-    "jest": "^24.8.0",
-    "unzipper": "^0.9.12"
+    "@types/jest": "^24.0.18",
+    "jest": "^24.9.0",
+    "unzipper": "^0.10.4"
   }
 }
