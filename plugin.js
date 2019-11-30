@@ -2,7 +2,6 @@
 
 const path = require('path');
 const remoteLs = require('npm-remote-ls');
-const util = require('util');
 
 class ExternalsPlugin {
   constructor(serverless, options) {
@@ -61,7 +60,6 @@ ExternalsPlugin.externals = async function(root, externals, config) {
   }
 
   if (config.exclude) {
-    console.log('Not including in package:', config.exclude.join(', '));
     externals = externals.filter(external => config.exclude.indexOf(external) < 0);
   }
 
@@ -70,7 +68,6 @@ ExternalsPlugin.externals = async function(root, externals, config) {
   const pkg = require(packagePath);
  
   if (!externals || (!externals.length && !config.exclude)) throw new Error('No externals listed');
-  debugger;
 
   let allExternals = [].concat(externals);
 
@@ -84,29 +81,36 @@ ExternalsPlugin.externals = async function(root, externals, config) {
     peer: false
   });
 
-  const ls = util.promisify((name, version, flatten, cb) => remoteLs.ls(name, version, flatten, (result) => cb(null, result)));
+  const ls = (name, version, flatten) => new Promise((res, rej) => {
+    remoteLs.ls(name, version, flatten, (result) => res(result))
+  });
 
-  externals.forEach(external => {
+  const dependenciesArrays = await Promise.all(externals.map(async external => {
     const version = pkg.dependencies[external];
 
     if (!version) {
       throw new Error('External module ' + external + ' not listed in package.json dependencies');
     }
 
-    promises.push(ls(external, version, true));
-  });
-
-  const dependenciesArray = await Promise.all(promises);
+    return await ls(external, version, true);
+  }));
 
   console.log(`Fetching done`);
 
-  dependenciesArray.forEach(array => {
-    allExternals = allExternals.concat(array.map(s => s.split('@')[0]));
+  dependenciesArrays.forEach(array => {
+    allExternals = allExternals.concat(array.map(s => s.split('@')[0]))
   });
 
-  allExternals = allExternals.filter((v, i, a) => a.indexOf(v) === i); // Unique
+  allExternals = allExternals
+    .filter(s => !!s)
+    .filter((v, i, a) => a.indexOf(v) === i); // Unique
 
-  console.log('Externals with dependencies (these modules will be included in the package):', allExternals.join(', '));
+  if (config.exclude) {
+    console.log('Not including in package:', config.exclude.join(', '));
+    allExternals = allExternals.filter(external => config.exclude.indexOf(external) < 0);
+  }
+
+  console.log('Externals with dependencies (these modules will be included in the package):', allExternals.sort().join(', '));
 
   return allExternals;
 }

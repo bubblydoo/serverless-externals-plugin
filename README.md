@@ -92,8 +92,8 @@ Key               | Default                                           | Descript
 --- | --- | ---
 externalsFilePath | `path.join(root, 'node-externals.json')`          | Path to `node-externals.json`
 packagePath       | `path.join(root, 'package.json')`                 | Path to your `package.json`
-exclude           | `[]`                                              | Filters values from `node-externals.json` (perfect for globally installed modules)
-ls                | `{development: true, optional: true, peer: true}` | Passed to `npm-remote-ls`
+exclude           | `[]`                                              | Filters values from `node-externals.json` (perfect for globally installed modules, like `aws-sdk`)
+ls                | `{development: false, optional: false, peer: false}` | Passed to `npm-remote-ls`
 
 ### Testing
 
