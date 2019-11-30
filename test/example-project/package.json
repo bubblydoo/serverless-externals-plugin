@@ -6,15 +6,15 @@
     "prepare-tests": "npm i && npm run build && sls package"
   },
   "dependencies": {
-    "aws-sdk": "^2.453.0",
+    "aws-sdk": "^2.580.0",
     "is-number": "^7.0.0",
     "is-object": "^1.0.1",
     "is-string": "^1.0.4"
   },
   "devDependencies": {
     "is-array": "^1.0.1",
-    "rollup": "^1.11.3",
-    "rollup-plugin-commonjs": "^9.3.4",
-    "rollup-plugin-node-resolve": "^4.2.4"
+    "rollup": "^1.27.5",
+    "rollup-plugin-commonjs": "^10.1.0",
+    "rollup-plugin-node-resolve": "^5.2.0"
   }
 }
