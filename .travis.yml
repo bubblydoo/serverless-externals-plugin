@@ -4,3 +4,5 @@ node_js:
 before_script:
   - npm i -g rollup serverless
   - npm i
+  - mkdir test/example-project/node_modules
+  - ln -s . test/example-project/node_modules/serverless-externals-plugin

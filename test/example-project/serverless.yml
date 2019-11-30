@@ -2,7 +2,7 @@ service: serverless-externals-plugin-example-project
 
 provider:
   name: aws
-  runtime: nodejs8.10
+  runtime: nodejs12.x
 
 plugins:
   localPath: '../../..'
