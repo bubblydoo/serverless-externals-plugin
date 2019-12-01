@@ -50,7 +50,7 @@ class ExternalsPlugin {
 ExternalsPlugin.externals = async function(root, externals, config) {
   config = config || {};
   const externalsFilePath = config.externalsFilePath || path.join(root, 'node-externals.json');
-  const packagePath = config.packagePath || path.join(root, 'package.json');
+  const packagePath = config.packagePath || path.join(root, 'package-lock.json');
 
   externals = externals || [];
   try {
@@ -86,7 +86,7 @@ ExternalsPlugin.externals = async function(root, externals, config) {
   });
 
   const dependenciesArrays = await Promise.all(externals.map(async external => {
-    const version = pkg.dependencies[external];
+    const version = pkg.dependencies[external].version || pkg.dependencies[external];
 
     if (!version) {
       throw new Error('External module ' + external + ' not listed in package.json dependencies');

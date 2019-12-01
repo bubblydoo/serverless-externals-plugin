@@ -91,7 +91,7 @@ The `externals` function takes a third argument object, `config`.
 Key               | Default                                           | Description
 --- | --- | ---
 externalsFilePath | `path.join(root, 'node-externals.json')`          | Path to `node-externals.json`
-packagePath       | `path.join(root, 'package.json')`                 | Path to your `package.json`
+packagePath       | `path.join(root, 'package-lock.json')`                 | Path to your `package-lock.json` or `package.json`
 exclude           | `[]`                                              | Filters values from `node-externals.json` (perfect for globally installed modules, like `aws-sdk`)
 ls                | `{development: false, optional: false, peer: false}` | Passed to `npm-remote-ls`
 
