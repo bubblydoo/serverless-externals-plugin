@@ -45,7 +45,8 @@ class ExternalsPlugin {
       }
     });
 
-    console.log(service);
+    console.log('Generated "package" field:')
+    console.log(service.package);
   }
 }
 
@@ -120,6 +121,8 @@ async function packageLockResolve(pkgLock, externals, config, packagePath) {
   let allExternals = [].concat(externals);
 
   function getRequiredDependencies(name, stack) {
+    console.log(`Looking for ${name} through ${stack.join(' > ')}`);
+
     let dep = pkgLock.dependencies[name];
 
     let requiredDeps = [name];
@@ -139,10 +142,25 @@ async function packageLockResolve(pkgLock, externals, config, packagePath) {
       console.warn(name, 'is a dev dependency through', stack.join(' > '));
     }
 
+    // This is the basic resolve, just using the "requires" field
     if (!dep.requires) return requiredDeps;
     requiredDeps = Object.keys(dep.requires).reduce((acc, cur) => {
       return [...acc, ...getRequiredDependencies(cur, [...stack, name])];
     }, requiredDeps);
+
+    // This section is important if there are multiple versions of a package
+    // with different dependencies
+    // uses the "requires" field to look up a packages subdependencies in
+    // "dependencies", then adds the matches to all required dependencies
+    if (!dep.dependencies) return requiredDeps;
+    requiredDeps = Object.keys(dep.requires).reduce((acc, cur) => {
+      const subDep = dep.dependencies[cur];
+      if (!subDep || !subDep.requires) return acc;
+      return Object.keys(subDep.requires).reduce((acc2, cur2) => {
+        return [...acc2, ...getRequiredDependencies(cur2, [...stack, `${name} (subdeps)`])];
+      }, acc);
+    }, requiredDeps);
+
     return requiredDeps;
   }
 
