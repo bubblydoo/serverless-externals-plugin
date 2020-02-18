@@ -3,6 +3,8 @@
 const path = require('path');
 const remoteLs = require('npm-remote-ls');
 
+const DEBUG = process.env.DEBUG_SERVERLESS_EXTERNALS_PLUGIN;
+
 class ExternalsPlugin {
   constructor(serverless, options) {
     this.serverless = serverless;
@@ -45,8 +47,10 @@ class ExternalsPlugin {
       }
     });
 
-    console.log('Generated "package" field:')
-    console.log(service.package);
+    if (DEBUG) {
+      console.log('Generated "package" field:')
+      console.log(service.package);
+    }
   }
 }
 
@@ -66,7 +70,7 @@ ExternalsPlugin.externals = async function(root, externals, config) {
     externals = externals.filter(external => config.exclude.indexOf(external) < 0);
   }
 
-  console.log('Listed externals:', externals.join(', '));
+  if (DEBUG) console.log('Listed externals:', externals.join(', '));
 
   const pkg = require(packagePath);
 
@@ -117,11 +121,20 @@ ExternalsPlugin.externalsRollup = async function(root, externals, config) {
 
 module.exports = ExternalsPlugin;
 
+function stringifyStack(stack) {
+  const x = stack.map(p => p.name + (p.throughSubdeps ? ' (subdeps)' : '')).join(' > ');
+  if (stack.find(p => typeof p.name !== 'string')) {
+    console.error(JSON.stringify(stack));
+    process.exit(1);
+  }
+  return x;
+}
+
 async function packageLockResolve(pkgLock, externals, config, packagePath) {
   let allExternals = [].concat(externals);
 
   function getRequiredDependencies(name, stack) {
-    console.log(`Looking for ${name} through ${stack.join(' > ')}`);
+    if (DEBUG) console.log(`Looking for ${name} through ${stringifyStack(stack)}`);
 
     let dep = pkgLock.dependencies[name];
 
@@ -133,19 +146,23 @@ async function packageLockResolve(pkgLock, externals, config, packagePath) {
       case 'string':
         throw new Error(`Package lock file ${packagePath} invalid`);
       case 'undefined':
-        console.log(`External module ${name} not found, must be transitive dependency of ${stack.join(' > ')}`);
+        if (DEBUG) console.warn(`External module ${name} not found, must be transitive dependency of ${stringifyStack(stack)}`);
         return [name];
       default:
         throw new Error(`Error occured while finding ${name} version`);
     }
     if (dep.dev) {
-      console.warn(name, 'is a dev dependency through', stack.join(' > '));
+      if (DEBUG) console.warn(name, 'is a dev dependency through', stringifyStack(stack));
     }
 
     // This is the basic resolve, just using the "requires" field
     if (!dep.requires) return requiredDeps;
     requiredDeps = Object.keys(dep.requires).reduce((acc, cur) => {
-      return [...acc, ...getRequiredDependencies(cur, [...stack, name])];
+      if (stack.map(p => p.name).indexOf(cur) > -1) {
+        if (DEBUG) console.warn('Cyclic dependency detected', cur, 'through', stringifyStack([...stack, {name}]));
+        return acc;
+      }
+      return [...acc, ...getRequiredDependencies(cur, [...stack, {name}])];
     }, requiredDeps);
 
     // This section is important if there are multiple versions of a package
@@ -157,7 +174,11 @@ async function packageLockResolve(pkgLock, externals, config, packagePath) {
       const subDep = dep.dependencies[cur];
       if (!subDep || !subDep.requires) return acc;
       return Object.keys(subDep.requires).reduce((acc2, cur2) => {
-        return [...acc2, ...getRequiredDependencies(cur2, [...stack, `${name} (subdeps)`])];
+        if (stack.map(p => p.name).indexOf(cur2) > -1) {
+          if (DEBUG) console.warn('Cyclic dependency detected', cur2, 'through', stringifyStack([...stack, {name, throughSubdeps: true}]));
+          return acc2;
+        }
+        return [...acc2, ...getRequiredDependencies(cur2, [...stack, {name, throughSubdeps: true}])];
       }, acc);
     }, requiredDeps);
 
@@ -177,7 +198,7 @@ async function packageLockResolve(pkgLock, externals, config, packagePath) {
         throw new Error(`Error occured while finding ${cur} version`);
     }
     if (!dep.requires) return acc;
-    const rds = getRequiredDependencies(cur, [pkgLock.name || 'root']);
+    const rds = getRequiredDependencies(cur, [{name: pkgLock.name || 'root'}]);
     return [...acc, ...rds];
   }, []);
 
