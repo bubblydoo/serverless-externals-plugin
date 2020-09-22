@@ -1,5 +1,5 @@
-const commonjs = require('rollup-plugin-commonjs');
-const resolve = require('rollup-plugin-node-resolve');
+const commonjs = require('@rollup/plugin-commonjs');
+const { nodeResolve } = require('@rollup/plugin-node-resolve');
 const externals = require('../..').externalsRollup;
 
 module.exports = async function() {
@@ -12,7 +12,7 @@ module.exports = async function() {
       exports: 'named'
     },
     plugins: [
-      resolve(),
+      nodeResolve(),
       commonjs()
     ],
     external: await externals(__dirname)
