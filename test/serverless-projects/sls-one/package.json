@@ -1,0 +1,9 @@
+{
+  "name": "sls-one",
+  "version": "0.0.0",
+  "dependencies": {
+    "pkg2": "file:../packages/pkg2-0.0.1/pkg2-0.0.1.tgz",
+    "pkg3": "file:../packages/pkg3-2.0.0/pkg3-2.0.0.tgz",
+    "serverless": "^2.55.0"
+  }
+}

@@ -1,0 +1,19 @@
+service: sls-one
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  stage: dev
+
+
+package:
+  individually: true
+
+plugins:
+  - ../../../build/cjs/index-cjs.js
+
+functions:
+  handler:
+    handler: bundle.handler
+    externals:
+      file: node-externals.json

@@ -1,3 +1,8 @@
+*.tgz
+test/**/bundle.js
+test/**/package-lock.json
+build
+
 # Example project things
 .serverless
 
