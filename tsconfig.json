@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "module": "esnext",
+    "outDir": "build/esm",
+    "declaration": true,
+    "incremental": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "noFallthroughCasesInSwitch": true,
+    "target": "esnext",
+    "noImplicitAny": true,
+    "moduleResolution": "node",
+    "sourceMap": false,
+    "typeRoots": ["node_modules/@types", "src/types"],
+    "allowJs": false
+  },
+  "include": ["src/**/*"]
+}

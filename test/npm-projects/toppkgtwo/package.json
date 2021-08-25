@@ -1,0 +1,7 @@
+{
+  "name": "toppkgtwo",
+  "version": "0.0.0",
+  "dependencies": {
+    "pkg2": "file:../../packages/pkg2-0.0.1/pkg2-0.0.1.tgz"
+  }
+}

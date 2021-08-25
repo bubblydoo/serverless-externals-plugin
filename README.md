@@ -1,106 +1,194 @@
 # Serverless Externals Plugin
 
-[![Build Status](https://travis-ci.org/hansottowirtz/serverless-externals-plugin.svg?branch=master)](https://travis-ci.org/hansottowirtz/serverless-externals-plugin)
+Only include listed `node_modules` and their dependencies in Serverless.
 
-This plugin was made for Serverless builds that use Rollup or Webpack. It does two things:
+This plugin helps Serverless package only external modules, and Rollup bundle all the other modules.
 
-- It generates a list of external modules for Rollup/Webpack (should be kept as `require()` in bundle)
-- It includes those modules and their dependencies in the package which is uploaded with Serverless.
+## Installation
 
-This list of external modules is kept in a file called `node-externals.json`.
+```bash
+npm install serverless-externals-plugin
+```
 
-If there's a global module available (like `aws-sdk`), you can exclude it from the package. See below.
+or
 
-See [test/example-project](test/example-project) for a typical project.
-
-### Motivation
-
-I wanted to include Cheerio/JSDom and AWS SDK in a Typescript project, but neither could be bundled because of obscure errors, so they needed to be external. To reduce package size, I didn't want to make every module external. Manually looking up a module and adding its dependencies to `rollup.config.js` and `serverless.yml` is simply too much work. This plugin makes this much easier.
-
-### Typical configuration
+```bash
+yarn add serverless-externals-plugin
+```
 
 `serverless.yml`:
-```yml
-...
 
+```yml
 plugins:
   - serverless-externals-plugin
 
+package:
+  patterns:
+    - '!./**'
+    - dist/**
+
 custom:
   externals:
-    exclude:
-      - aws-sdk
-    # file: node-externals.json
-    # modules: [is-string, is-array]
-
-...
+    modules:
+      - pkg3
 ```
 
-`node-externals.json`:
-```json
-["is-string", "is-array", "aws-sdk"]
-```
+`rollup.config.js`:
 
-`rollup.config.js` (if you're using Rollup):
-```javascript
-const externals = require('serverless-externals-plugin').externalsRollup;
+```js
+import { rollupPlugin as externals } from "serverless-externals-plugin";
 
-module.exports = async function() {
-  return {
-    input: 'src/main.js',
-    ...
-    external: await externals(__dirname)
-  }
-};
-```
-
-`webpack.config.js` (if you're using Webpack):
-```javascript
-const externals = require('serverless-externals-plugin').externalsWebpack;
-
-module.exports = {
-  entry: 'src/main.js',
+export default {
   ...
-  externals: externals(__dirname)
-};
+  treeshake: {
+    moduleSideEffects: "no-external",
+  },
+  plugins: [
+    externals(__dirname, { file: "node-externals.json" }),
+    commonjs(),
+    nodeResolve({ preferBuiltins: true }),
+    ...
+  ],
+}
 ```
 
-### Advanced
+## Example
 
-#### `node-externals.json`
+Externals Plugin interacts with both **Serverless** and with your **bundler** (Rollup).
 
-If you don't like adding a `node-externals.json` file, you can pass a list of module names to the `externals` function:
+Let's say you have two modules in your `package.json`, `pkg2` and `pkg3`. `pkg3` is a module with native binaries, so it can't be bundled.
 
-```javascript
-externals(__dirname, ['is-object'])
+```
+root
++-- pkg3@2.0.0
++-- pkg2@0.0.1
+    +-- pkg3@1.0.0
 ```
 
-And declare a list of modules in `serverless.yml`:
+Because `pkg3` can't be bundled, both `./node_modules/pkg3` and `./node_modules/pkg2/node_modules/pkg3` should be included in the bundle.
+`pkg2` can just be bundled, but should import `pkg3` as follows: `require('pkg2/node_modules/pkg3')`. It cannot just do `require('pkg3')`
+because `pkg3` has a different version than `pkg2/node_modules/pkg3`.
+
+In the Serverless package, only `./node_modules/pkg3/**` and `./node_modules/pkg2/node_modules/pkg3/**` should be included, all the other
+contents of `node_modules` are already bundled.
+
+Externals Plugin provides a Serverless plugin and a Rollup plugin to support this.
+
+## Configuration
+
+As the list of externals is shared between Serverless and a bundler, it's recommended to make a `node-externals.json` file:
+
+```json
+{
+  "modules": [
+    "pkg3"
+  ]
+}
+```
+
+Then, in `serverless.yml`:
 
 ```yml
 custom:
   externals:
-    modules:
-      - is-object
+    file: node-externals.json
 ```
 
-#### Config
+And in `rollup.config.js`:
 
-The `externals` function takes a third argument object, `config`.
-
-Key               | Default                                           | Description
---- | --- | ---
-externalsFilePath | `path.join(root, 'node-externals.json')`          | Path to `node-externals.json`
-packagePath       | `path.join(root, 'package-lock.json')`                 | Path to your `package-lock.json` or `package.json`
-exclude           | `[]`                                              | Filters values from `node-externals.json` (perfect for globally installed modules, like `aws-sdk`)
-ls                | `{development: false, optional: false, peer: false}` | Passed to `npm-remote-ls`
-
-### Testing
-
-```bash
-npm test
+```js
+plugins: [
+  externals(__dirname, { file: "node-externals.json" }),
+  ...
+]
 ```
 
-### See also
+## How it works
 
-Inspired by [Serverless Plugin Include Dependencies](https://github.com/dougmoscrop/serverless-plugin-include-dependencies) and [Webpack Node Externals](https://github.com/liady/webpack-node-externals)
+Externals Plugin uses [Arborist](https://github.com/npm/arborist) by NPM to analyze the `node_modules` tree (using `loadActual()`).
+
+Using the Externals configuration (a list modules you want to keep external), the Plugin will then build a list of all dependencies that should be kept external.
+This list will contain the modules in the configuration and all the (non-dev) dependencies, recursively.
+
+In the example, the list will contain both `pkg2/node_modules/pkg3` and `pkg3`.
+
+## Rollup Plugin
+
+```js
+import { rollupPlugin as externals } from "serverless-externals-plugin";
+import commonjs from "@rollup/plugin-commonjs";
+import nodeResolve from "@rollup/plugin-node-resolve";
+
+/** @type {import('rollup').RollupOptions} */
+const config = {
+  input: "index.js",
+  output: {
+    file: "bundle.js",
+    format: "cjs",
+    exports: "default",
+  },
+  treeshake: {
+    moduleSideEffects: "no-external",
+  },
+  plugins: [
+    externals(__dirname, { file: "node-externals.json" }),
+    commonjs(),
+    nodeResolve({ preferBuiltins: true }),
+  ],
+};
+
+export default config;
+```
+
+Make sure `externals` comes **before** `@rollup/plugin-commonjs` and `@rollup/plugin-node-resolve`.
+
+Make sure [`moduleSideEffects: "no-external"`](https://rollupjs.org/guide/en/#treeshake) is set. By default, Rollup includes all external modules that appear in the code because they might contain side effects, even if they can be treeshaken.
+By setting this option Rollup will assume external modules have no side effects.
+
+(`"no-external"` is equivalent to `(id, external) => !external`)
+
+### Implementation
+
+The Rollup plugin provides a `resolveId` function to Rollup. For every import (e.g. `require('pkg3')`) in your source code,
+Rollup will ask the Externals Plugin whether the import is external, and where to find it.
+
+The Plugin will look for the import in the Arborist graph, and if it's declared as being external
+it will return the full path to the module that's being imported (e.g. `pkg2/node_modules/pkg3`).
+
+## Caveats
+
+### Externals with side effects
+
+It's unlikely, but if you have external modules with side effects (like polyfills), make sure to configure Rollup properly.
+
+**NOTE**: This only applies to external modules. You should probably bundle your polyfills.
+
+```js
+import "some-external-module"; // this doesn't work, Rollup will treeshake it away
+```
+
+As Rollup will remove external modules with side effects, make sure to add something like this
+to the Rollup config:
+
+```js
+treeshake: {
+  moduleSideEffects: (id, external) => !id.test(/some-external-module/) || !external
+}
+```
+
+### Only one `node_modules` supported
+
+This plugin doesn't have support for analyzing multiple `node_modules` folders. If you have
+more `node_modules` folders on your `NODE_PATH` (e.g. from a Lambda layer), you can still use
+the [`external` field of Rollup](https://rollupjs.org/guide/en/#external).
+
+## Todo
+
+- Ensure compatibility with Serverless Jetpack or speedup packaging somehow
+- Webpack plugin
+- Esbuild plugin
+- Layer support
+
+## Credits
+
+Some Serverless-handling code was taken from [Serverless Jetpack](https://github.com/FormidableLabs/serverless-jetpack).
