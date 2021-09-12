@@ -139,7 +139,7 @@ const config = {
   plugins: [
     externals(__dirname, { file: "node-externals.json" }),
     commonjs(),
-    nodeResolve({ preferBuiltins: true }),
+    nodeResolve({ preferBuiltins: true, exportConditions: ["node"] }),
   ],
 };
 
@@ -152,6 +152,8 @@ Make sure [`moduleSideEffects: "no-external"`](https://rollupjs.org/guide/en/#tr
 By setting this option Rollup will assume external modules have no side effects.
 
 (`"no-external"` is equivalent to `(id, external) => !external`)
+
+Preferably, also set `exportConditions: ["node"]` as an option in the node-resolve plugin. This ensures that Rollup uses Node's resolution algorithm, so that packages like [`uuid` can be bundled](https://github.com/uuidjs/uuid/issues/544).
 
 ### Implementation
 
