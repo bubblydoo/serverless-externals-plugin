@@ -1,11 +1,15 @@
-import { Graph, Node as ArboristNode, NodeOrLink } from "@npmcli/arborist";
+import { Graph, NodeOrLink } from "@npmcli/arborist";
 import Serverless, { Options } from "serverless";
 import Plugin, { Hooks } from "serverless/classes/Plugin";
 import {
   buildDependencyGraph,
-  buildExternalDependencyList,
+  buildExternalDependencyListFromConfig,
+  buildExternalDependencyListFromReport,
   ExternalsConfig,
-  resolveExternalsConfig,
+  ExternalsReport,
+  ExternalsReportRef,
+  isConfigReport,
+  resolveExternalsReport,
 } from "./core";
 import { dependenciesChildrenFilter } from "./default-filter";
 
@@ -17,7 +21,7 @@ interface FunctionPackage {
   isNode: boolean;
   functionName: string;
   functionObject: (Serverless.FunctionDefinitionHandler | Serverless.FunctionDefinitionImage) & {
-    externals?: ExternalsConfig;
+    externals?: ExternalsReportRef;
   };
 }
 
@@ -36,13 +40,7 @@ class ExternalsPlugin implements Plugin {
         externals: {
           type: "object",
           properties: {
-            modules: {
-              type: "array",
-              items: {
-                type: "string",
-              },
-            },
-            file: {
+            report: {
               type: "string",
             },
           },
@@ -75,7 +73,9 @@ class ExternalsPlugin implements Plugin {
   async packageFunction(fnPkg: FunctionPackage, graph: Graph, root: string) {
     const obj = fnPkg.functionObject;
 
-    const resolvedConfig = obj.externals && (await resolveExternalsConfig(obj.externals, root));
+    const report = obj.externals && (await resolveExternalsReport(obj.externals, root));
+
+    const resolvedConfig = report.config;
 
     if (!resolvedConfig?.modules) {
       console.warn(
@@ -84,12 +84,7 @@ class ExternalsPlugin implements Plugin {
       return;
     }
 
-    const dependencyList = await buildExternalDependencyList(
-      graph,
-      resolvedConfig,
-      dependenciesChildrenFilter,
-      { warn: console.warn.bind(console) }
-    );
+    const dependencyList = await buildExternalDependencyListFromAnyConfig(report, graph);
 
     const patternsList = generatePatternsList(dependencyList);
 
@@ -99,14 +94,13 @@ class ExternalsPlugin implements Plugin {
     obj.package.patterns = [...obj.package.patterns, ...patternsList];
   }
 
-  async packageService(
-    fnObjs: FunctionPackage["functionObject"][],
-    graph: Graph,
-    root: string
-  ) {
+  async packageService(fnObjs: FunctionPackage["functionObject"][], graph: Graph, root: string) {
     const service = this.serverless.service;
-    const resolvedConfig =
-      service.custom?.externals && (await resolveExternalsConfig(service.custom?.externals, root));
+    const configOrReport =
+      service.custom?.externals && (await resolveExternalsReport(service.custom?.externals, root));
+
+    const resolvedConfig = configOrReport.config;
+
     if (!resolvedConfig?.modules) {
       console.warn(
         `No custom.externals detected for service, skipping externals bundling. You might want to set package.patterns = ['!node_modules/**'] to exclude all node_modules.`
@@ -114,12 +108,7 @@ class ExternalsPlugin implements Plugin {
       return;
     }
 
-    const dependencyList = await buildExternalDependencyList(
-      graph,
-      resolvedConfig,
-      dependenciesChildrenFilter,
-      { warn: console.warn.bind(console) }
-    );
+    const dependencyList = await buildExternalDependencyListFromAnyConfig(configOrReport, graph);
 
     const patternsList = generatePatternsList(dependencyList);
 
@@ -242,6 +231,35 @@ const generatePatternsList = (dependencyList: Set<NodeOrLink>) => {
     patternsList.push(`!./${node.location}/node_modules`);
   });
   return patternsList;
+};
+
+const getModuleFilter = (resolvedConfig: ExternalsConfig) => {
+  return (node: NodeOrLink) => {
+    if (!node) return false; // happens with peerOptional, already warned in Rollup plugin
+    if (resolvedConfig.packaging?.exclude?.includes(node.name)) return false;
+    return true;
+  };
+};
+
+const buildExternalDependencyListFromAnyConfig = async (
+  configOrReport: ExternalsConfig | ExternalsReport,
+  graph: Graph
+) => {
+  return isConfigReport(configOrReport)
+    ? await buildExternalDependencyListFromReport(
+        graph,
+        configOrReport,
+        dependenciesChildrenFilter,
+        getModuleFilter(configOrReport.config),
+        { warn: console.warn.bind(console) }
+      )
+    : await buildExternalDependencyListFromConfig(
+        graph,
+        configOrReport,
+        dependenciesChildrenFilter,
+        getModuleFilter(configOrReport),
+        { warn: console.warn.bind(console) }
+      );
 };
 
 export default ExternalsPlugin;

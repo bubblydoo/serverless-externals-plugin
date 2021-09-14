@@ -1,6 +1,6 @@
 {
   "name": "serverless-externals-plugin",
-  "version": "0.2.0-next.0",
+  "version": "0.2.0-next.2",
   "description": "Only include external node modules and their dependencies in Serverless",
   "main": "./build/cjs/index-cjs.js",
   "module": "./build/esm/index.js",
@@ -19,10 +19,12 @@
     }
   },
   "scripts": {
+    "prepublishOnly": "npm run build",
     "build": "tsc && tsc -p tsconfig.cjs.json",
     "test": "run-s test:*",
     "test:setup-packages": "ls -d test/packages/*/ | xargs -I {} bash -c \"cd '{}' && npm pack\"",
-    "test:npm-projects": "ls -d test/npm-projects/*/ | xargs -I {} bash -c \"cd '{}' && npm i && rollup -c && node --unhandled-rejections=strict test/run.test.js && node --unhandled-rejections=strict test/contents.test.js\""
+    "test:npm-projects": "ls -d test/npm-projects/*/ | xargs -I {} bash -c \"cd '{}' && npm i && rollup -c && node --unhandled-rejections=strict test/run.test.js && node --unhandled-rejections=strict test/contents.test.js\"",
+    "test:serverless-projects": "ls -d test/serverless-projects/*/ | xargs -I {} bash -c \"cd '{}' && npm i && rollup -c && serverless package && node --unhandled-rejections=strict test/contents.test.js\""
   },
   "author": "Hans Otto Wirtz <hansottowirtz@gmail.com>",
   "license": "MIT",
@@ -46,6 +48,6 @@
     "typescript": "^4.3.5"
   },
   "files": [
-    "./build/"
+    "build/"
   ]
 }

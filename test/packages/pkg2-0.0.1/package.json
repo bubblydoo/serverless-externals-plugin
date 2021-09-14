@@ -3,5 +3,8 @@
   "version": "0.0.1",
   "dependencies": {
     "pkg3": "file:../pkg3-1.0.0/pkg3-1.0.0.tgz"
-  }
+  },
+  "files": [
+    "index.js"
+  ]
 }
