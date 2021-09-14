@@ -3,12 +3,10 @@ import Serverless, { Options } from "serverless";
 import Plugin, { Hooks } from "serverless/classes/Plugin";
 import {
   buildDependencyGraph,
-  buildExternalDependencyListFromConfig,
   buildExternalDependencyListFromReport,
   ExternalsConfig,
   ExternalsReport,
   ExternalsReportRef,
-  isConfigReport,
   resolveExternalsReport,
 } from "./core";
 import { dependenciesChildrenFilter } from "./default-filter";
@@ -72,50 +70,59 @@ class ExternalsPlugin implements Plugin {
 
   async packageFunction(fnPkg: FunctionPackage, graph: Graph, root: string) {
     const obj = fnPkg.functionObject;
-
-    const report = obj.externals && (await resolveExternalsReport(obj.externals, root));
-
-    const resolvedConfig = report.config;
-
-    if (!resolvedConfig?.modules) {
-      console.warn(
-        `No externals detected for function "${fnPkg.functionName}", skipping externals bundling. You might want to set package.patterns = ['!node_modules/**'] to exclude all node_modules.`
-      );
-      return;
-    }
-
-    const dependencyList = await buildExternalDependencyListFromAnyConfig(report, graph);
-
-    const patternsList = generatePatternsList(dependencyList);
-
+    const subject = `"${fnPkg.functionName}"`;
     obj.package = obj.package || {};
     obj.package.patterns = obj.package.patterns || [];
-
-    obj.package.patterns = [...obj.package.patterns, ...patternsList];
+    obj.package.patterns = [
+      ...obj.package.patterns,
+      ...(await this.generatePatternsFromReport(obj.externals, graph, root, subject)),
+    ];
   }
 
   async packageService(fnObjs: FunctionPackage["functionObject"][], graph: Graph, root: string) {
     const service = this.serverless.service;
-    const configOrReport =
-      service.custom?.externals && (await resolveExternalsReport(service.custom?.externals, root));
+    const subject = "service";
+    service.package = service.package || {};
+    service.package.patterns = service.package.patterns || [];
+    service.package.patterns = [
+      ...service.package.patterns,
+      ...(await this.generatePatternsFromReport(service.custom?.externals, graph, root, subject)),
+    ];
+  }
 
-    const resolvedConfig = configOrReport.config;
-
-    if (!resolvedConfig?.modules) {
-      console.warn(
-        `No custom.externals detected for service, skipping externals bundling. You might want to set package.patterns = ['!node_modules/**'] to exclude all node_modules.`
+  private async generatePatternsFromReport(
+    ref: ExternalsReportRef,
+    graph: Graph,
+    root: string,
+    logSubject: string
+  ): Promise<string[]> {
+    if (!ref) {
+      this.warn(
+        `No externals detected for ${logSubject}, skipping externals bundling. You might want to set package.patterns = ['!node_modules/**'] to exclude all node_modules.`
       );
-      return;
+      return [];
     }
 
-    const dependencyList = await buildExternalDependencyListFromAnyConfig(configOrReport, graph);
+    const report = await resolveExternalsReport(ref, root);
+
+    const resolvedConfig = report.config;
+
+    if (!resolvedConfig?.modules) {
+      this.warn(
+        `Empty externals list detected for ${logSubject}, skipping externals bundling. You might want to set package.patterns = ['!node_modules/**'] to exclude all node_modules.`
+      );
+      return [];
+    }
+
+    const dependencyList = await buildExternalDependencyListFromReportHelper(report, graph);
+
+    this.log(
+      `Setting package patterns for ${logSubject} for ${dependencyList.size} external modules`
+    );
 
     const patternsList = generatePatternsList(dependencyList);
 
-    service.package = service.package || {};
-    service.package.patterns = service.package.patterns || [];
-
-    service.package.patterns = [...service.package.patterns, ...patternsList];
+    return patternsList;
   }
 
   async package() {
@@ -163,9 +170,7 @@ class ExternalsPlugin implements Plugin {
     const numFns = fnsPkgsToPackage.length;
 
     if (numFns < individualPkgs.length) {
-      this.serverless.cli.log(
-        `Skipping individual packaging for ${individualPkgs.length - numFns} functions`
-      );
+      this.log(`Skipping individual packaging for ${individualPkgs.length - numFns} functions`);
     }
 
     // We recreate the logic from `packager#packageService` for deciding whether
@@ -194,7 +199,7 @@ class ExternalsPlugin implements Plugin {
       );
     } else if (!numFns) {
       // Detect if we did nothing...
-      this.serverless.cli.log("No matching service or functions to package.");
+      this.log("No matching service or functions to package.");
     }
 
     service.package.excludeDevDependencies = false;
@@ -205,6 +210,14 @@ class ExternalsPlugin implements Plugin {
     tasks.push(...fnsPkgsToPackage.map((obj) => () => this.packageFunction(obj, graph, root)));
 
     await Promise.all(tasks.map((t) => t()));
+  }
+
+  private log(msg: string) {
+    this.serverless.cli.log(msg, "Externals Plugin");
+  }
+
+  private warn(msg: string) {
+    this.serverless.cli.log(msg, "Externals Plugin", { color: "orange" });
   }
 }
 
@@ -241,25 +254,17 @@ const getModuleFilter = (resolvedConfig: ExternalsConfig) => {
   };
 };
 
-const buildExternalDependencyListFromAnyConfig = async (
-  configOrReport: ExternalsConfig | ExternalsReport,
+const buildExternalDependencyListFromReportHelper = async (
+  report: ExternalsReport,
   graph: Graph
 ) => {
-  return isConfigReport(configOrReport)
-    ? await buildExternalDependencyListFromReport(
-        graph,
-        configOrReport,
-        dependenciesChildrenFilter,
-        getModuleFilter(configOrReport.config),
-        { warn: console.warn.bind(console) }
-      )
-    : await buildExternalDependencyListFromConfig(
-        graph,
-        configOrReport,
-        dependenciesChildrenFilter,
-        getModuleFilter(configOrReport),
-        { warn: console.warn.bind(console) }
-      );
+  return await buildExternalDependencyListFromReport(
+    graph,
+    report,
+    dependenciesChildrenFilter,
+    getModuleFilter(report.config),
+    { warn: console.warn.bind(console) }
+  );
 };
 
 export default ExternalsPlugin;
