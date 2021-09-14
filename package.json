@@ -1,6 +1,6 @@
 {
   "name": "serverless-externals-plugin",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Only include external node modules and their dependencies in Serverless",
   "main": "./build/cjs/index-cjs.js",
   "module": "./build/esm/index.js",
@@ -48,6 +48,7 @@
     "typescript": "^4.3.5"
   },
   "files": [
-    "build/"
+    "build/",
+    "!build/**/*.tsbuildinfo"
   ]
 }
