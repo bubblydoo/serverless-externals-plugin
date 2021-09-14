@@ -1,3 +1,6 @@
 {
-  "modules": ["pkg3"]
+  "modules": ["pkg3", "pkg4"],
+  "packaging": {
+    "exclude": ["aws-sdk"]
+  }
 }

@@ -26,3 +26,8 @@ export const printExternalNodesWithDifferentVersions = (nodes: Set<NodeOrLink>) 
     }
   });
 };
+
+export const printReport = (modules: Set<string>, reportFileName: string) => {
+  console.log(`Modules actually imported in final bundle (written to ${reportFileName}):`);
+  console.log(Array.from(modules).map((s) => `- ${s}`).join("\n"));
+};

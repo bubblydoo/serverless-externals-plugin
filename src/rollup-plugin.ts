@@ -3,11 +3,12 @@ import pkgDir from "pkg-dir";
 import { Plugin } from "rollup";
 import {
   buildDependencyGraph,
-  buildExternalDependencyList,
+  buildExternalDependencyListFromConfig,
   ExternalsConfig,
+  ExternalsReport,
   resolveExternalsConfig,
 } from "./core";
-import { printExternalNodes, printExternalNodesWithDifferentVersions } from "./print";
+import { printExternalNodes, printExternalNodesWithDifferentVersions, printReport } from "./print";
 import builtinModules from "builtin-modules";
 import { prettyJson } from "./util/pretty-json";
 import path from "path";
@@ -19,15 +20,17 @@ const RESOLVE_ID_DEFER: null = null;
 const rollupPlugin = (root: string, config: ExternalsConfig): Plugin => {
   let graph: Graph;
   let externalNodes = new Set<NodeOrLink>();
+  let resolvedConfig: ExternalsConfig;
   const plugin: Plugin = {
     name: "serverless-externals-plugin",
     async buildStart() {
       graph = await buildDependencyGraph(root);
-      const resolvedConfig = await resolveExternalsConfig(config, root);
-      externalNodes = await buildExternalDependencyList(
+      resolvedConfig = await resolveExternalsConfig(config, root);
+      externalNodes = await buildExternalDependencyListFromConfig(
         graph,
         resolvedConfig,
         dependenciesChildrenFilter,
+        () => true,
         {
           warn: this.warn.bind(this),
         }
@@ -74,13 +77,12 @@ const rollupPlugin = (root: string, config: ExternalsConfig): Plugin => {
         : {};
 
       if (!isImporteePath) {
+        if (builtinModules.includes(importeeModuleId)) {
+          return RESOLVE_ID_DEFER;
+        }
         const importeeEdge = fromNode.edgesOut.get(importeeModuleId);
         if (!importeeEdge) {
-          // if no edge is found, it's probably a builtin module
-          if (!builtinModules.includes(importeeModuleId)) {
-            // only warn when it's not a builtin module
-            this.warn(`No edge found for: ${prettyJson(importeeModuleId)} (from ${importee})`);
-          }
+          this.warn(`No edge found for: ${prettyJson(importeeModuleId)} (from ${importee})`);
           return RESOLVE_ID_DEFER;
         }
         toNode = importeeEdge.to;
@@ -93,6 +95,11 @@ const rollupPlugin = (root: string, config: ExternalsConfig): Plugin => {
           // it's a node module (possibly through a link)
           const toInventoryKey = getRelativeDirPath(root, toPackageDir);
           toNode = graph.inventory.get(toInventoryKey);
+          if (!toNode) {
+            // When a rogue package.json is included somewhere in the dist of a module
+            // e.g. see https://github.com/aws/aws-sdk-js-v3/issues/2740
+            this.error(`Module's package.json doesn't belong to current node_modules tree: ${importee}`);
+          }
         } else {
           this.error(`Couldn't find package dir for ${importee}`);
         }
@@ -120,6 +127,39 @@ const rollupPlugin = (root: string, config: ExternalsConfig): Plugin => {
         this.warn(`toNode.location doesn't start with node_modules/: ${toNodeLocation}`);
       }
       return { id: toNodeLocation, external: "relative" };
+    },
+    async generateBundle(_options, bundle) {
+      if (config.report === false) return;
+      const originalImports: string[] = [];
+      for (const fileName in bundle) {
+        const imports = (bundle[fileName] as any).imports;
+        originalImports.push(...imports);
+      }
+      const imports = new Set<string>();
+      for (const originalImport of originalImports) {
+        if (builtinModules.includes(originalImport)) continue;
+        const importFilePath = path.resolve(root, "node_modules", originalImport);
+        const importModulePath = await pkgDir(importFilePath);
+        if (importModulePath === root) continue;
+        if (!importModulePath) {
+          this.warn(`No module found for: ${prettyJson(originalImport)}`);
+          continue;
+        }
+        imports.add(getRelativeDirPath(root, importModulePath));
+      }
+      const report: ExternalsReport = {
+        isReport: true,
+        importedModuleRoots: Array.from(imports),
+        config: resolvedConfig,
+      };
+      const reportFileName =
+        typeof config.report === "string" ? config.report : `node-externals-report.json`;
+      this.emitFile({
+        type: "asset",
+        fileName: reportFileName,
+        source: JSON.stringify(report, null, 2),
+      });
+      printReport(imports, reportFileName);
     },
   };
 

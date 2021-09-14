@@ -16,6 +16,8 @@ functions:
     handler: bundle.handler
     externals:
       report: node-externals-report.json
+      exclude:
+        - aws-sdk
     package:
       patterns:
         - "!./**"

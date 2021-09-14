@@ -1,0 +1,15 @@
+{
+  "name": "pkg5",
+  "version": "1.0.0",
+  "files": [
+    "index.js",
+    "dev-only.js"
+  ],
+  "dependencies": {
+    "pkg2": "file:../pkg2-0.0.1/pkg2-0.0.1.tgz",
+    "pkg3": "file:../pkg3-2.0.0/pkg3-2.0.0.tgz"
+  },
+  "devDependencies": {
+    "pkg4": "file:../pkg4-1.0.0/pkg4-1.0.0.tgz"
+  }
+}

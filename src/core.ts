@@ -5,20 +5,54 @@ import semver from "semver";
 import { prettyJson } from "./util/pretty-json";
 import { promises as fs } from "fs";
 
-export interface ExternalsConfig extends ResolvedExternalsConfig {
+export interface ExternalsConfigRef {
   file?: string;
 }
 
-export interface ResolvedExternalsConfig {
+export interface ExternalsConfig {
   modules?: string[];
+  packaging?: {
+    exclude?: string[];
+  }
+  report?: string | boolean;
 }
 
-export const resolveExternalsConfig = async (config: ExternalsConfig, root: string) => {
-  if (config.file) {
-    const filePath = path.resolve(root, config.file);
+export interface ExternalsReportRef {
+  report?: string;
+}
+
+export interface ExternalsReport {
+  isReport: true;
+  /** Locations of top-level imported modules, e.g. `node_modules/db-errors`. Same format as Arborist locations. */
+  importedModuleRoots: string[];
+  /** Original config */
+  config: ExternalsConfig;
+}
+
+export const resolveExternalsConfig = async (
+  configOrRef: ExternalsConfig | ExternalsConfigRef,
+  root: string
+): Promise<ExternalsConfig> => {
+  if ('file' in configOrRef) {
+    const filePath = path.resolve(root, configOrRef.file);
     return JSON.parse(await fs.readFile(filePath, "utf-8"));
   }
-  return config;
+  return configOrRef as any;
+};
+
+export const resolveExternalsReport = async (
+  ref: ExternalsReportRef,
+  root: string
+): Promise<ExternalsReport> => {
+  if (!('report' in ref)) throw new Error("No `externals.report` field");
+  const filePath = path.resolve(root, ref.report);
+  return JSON.parse(await fs.readFile(filePath, "utf-8"));
+};
+
+export const isConfigReport = (
+  config: ExternalsConfig | ExternalsReport
+): config is ExternalsReport => {
+  return "isReport" in config && config.isReport;
 };
 
 export const buildDependencyGraph = async (root: string) => {
@@ -29,32 +63,33 @@ export const buildDependencyGraph = async (root: string) => {
   return graph;
 };
 
-export const buildExternalDependencyList = async (
+export const buildExternalDependencyListFromReport = async (
   graph: Graph,
-  config: ResolvedExternalsConfig,
+  report: ExternalsReport,
   childrenFilter: (edge: Edge) => boolean = () => true,
+  moduleFilter: (node: NodeOrLink) => boolean = () => true,
   options: { warn?: (str: string) => void } = {}
 ) => {
   const externalNodes = new Set<NodeOrLink>();
 
-  const verifyEdge = (edge: Edge, warn?: (str: string) => void) => {
-    if (edge.missing) {
-      warn?.(`Dependency is missing, skipping:\n${prettyJson(edge)}`);
-      return false;
-    }
-    if (edge.invalid) {
-      warn?.(`Dependency is invalid, skipping:\n${prettyJson(edge)}`);
-      return false;
-    }
-    if (!edge.to) {
-      // peerOptional edges seem to often have no edge.to
-      if (edge.type !== "peerOptional") {
-        warn?.(`Edge has no to node, skipping:\n${prettyJson(edge)}`);
-      }
-      return false;
-    }
-    return true;
-  };
+  for (const importedModuleRoot of report.importedModuleRoots) {
+    const rootExternalNode = graph.inventory.get(importedModuleRoot);
+    externalNodes.add(rootExternalNode);
+    const nodes = findAllNodeChildren(rootExternalNode, childrenFilter, options);
+    for (const node of nodes) externalNodes.add(node);
+  }
+
+  return new Set(Array.from(externalNodes).filter(moduleFilter));
+};
+
+export const buildExternalDependencyListFromConfig = async (
+  graph: Graph,
+  config: ExternalsConfig,
+  childrenFilter: (edge: Edge) => boolean = () => true,
+  moduleFilter: (node: NodeOrLink) => boolean = () => true,
+  options: { warn?: (str: string) => void } = {}
+) => {
+  const externalNodes = new Set<NodeOrLink>();
 
   // depth-first search for matching edges
   depth({
@@ -68,20 +103,37 @@ export const buildExternalDependencyList = async (
       if (edge === null) return;
       if (!verifyEdge(edge, options.warn)) return;
 
-      if (doesNodePairMatchConfig(config, edge.from, edge.to)) {
+      if (doesNodePairMatchConfig(config.modules, edge.from, edge.to)) {
         externalNodes.add(edge.to);
       }
     },
   });
 
-  // depth-first include every dependency of external nodes
+  // include every dependency of external nodes
   Array.from(externalNodes).forEach((rootExternalNode) => {
-    Array.from(rootExternalNode.edgesOut.values()).forEach((rootEdge) => {
+    const nodes = findAllNodeChildren(rootExternalNode, childrenFilter, options);
+    for (const node of nodes) externalNodes.add(node);
+  });
+
+  return new Set(Array.from(externalNodes).filter(moduleFilter));
+};
+
+const findAllNodeChildren = (
+  node: NodeOrLink,
+  childrenFilter: (edge: Edge) => boolean = () => true,
+  options: { warn?: (str: string) => void } = {}
+) => {
+  const externalNodes = new Set<NodeOrLink>();
+
+  // depth-first find every dependency of node
+  Array.from(node.edgesOut.values())
+    .filter(childrenFilter)
+    .forEach((rootEdge) => {
       depth({
         tree: rootEdge,
         getChildren: (edge: Edge) => {
           if (edge && !verifyEdge(edge)) return [];
-          return Array.from(edge.to.edgesOut.values());
+          return Array.from(edge.to.edgesOut.values()).filter(childrenFilter);
         },
         visit: (edge: Edge) => {
           if (!verifyEdge(edge, options.warn)) return;
@@ -90,17 +142,31 @@ export const buildExternalDependencyList = async (
         },
       });
     });
-  });
 
   return externalNodes;
 };
 
-const doesNodePairMatchConfig = (
-  config: ResolvedExternalsConfig,
-  from: NodeOrLink,
-  to: NodeOrLink
-) => {
-  return config.modules.some((spec) => {
+const verifyEdge = (edge: Edge, warn?: (str: string) => void) => {
+  if (edge.missing) {
+    warn?.(`Dependency is missing, skipping:\n${prettyJson(edge)}`);
+    return false;
+  }
+  if (edge.invalid) {
+    warn?.(`Dependency is invalid, skipping:\n${prettyJson(edge)}`);
+    return false;
+  }
+  if (!edge.to) {
+    // peerOptional edges seem to often have no edge.to
+    if (edge.type !== "peerOptional") {
+      warn?.(`Edge has no to node, skipping:\n${prettyJson(edge)}`);
+    }
+    return false;
+  }
+  return true;
+};
+
+const doesNodePairMatchConfig = (modules: string[], from: NodeOrLink, to: NodeOrLink) => {
+  return modules.some((spec) => {
     const [specName, specVersionRange] = spec.split(/(?!^@)@/); // regex to avoid splitting on first @org
     if (specName === to.name) {
       if (!specVersionRange) return true;
