@@ -135,7 +135,7 @@ const rollupPlugin = (root: string, config: ExternalsConfig): Plugin => {
         const imports = (bundle[fileName] as any).imports;
         originalImports.push(...imports);
       }
-      const imports = new Set<string>();
+      const imports = new Set<string>(config.packaging?.forceIncludeModuleRoots || []);
       for (const originalImport of originalImports) {
         if (builtinModules.includes(originalImport)) continue;
         const importFilePath = path.resolve(root, "node_modules", originalImport);

@@ -12,7 +12,10 @@ export interface ExternalsConfigRef {
 export interface ExternalsConfig {
   modules?: string[];
   packaging?: {
+    /** Module names that are excluded because they're included in the Serverless function in a different way. */
     exclude?: string[];
+    /** Locations of imported modules that should always be included. Used for peer dependencies. Same format as Arborist locations. */
+    forceIncludeModuleRoots?: string[];
   }
   report?: string | boolean;
 }

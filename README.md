@@ -220,6 +220,50 @@ plugins: [
 ]
 ```
 
+## Dynamic imports
+
+If your code or one of your Node modules does the following:
+
+```js
+require("p" + "g");
+// or
+import("p" + "g");
+```
+
+Then this plugin will not be able to detect which modules should be packaged. You can force include them by using `packaging.forceIncludeModuleRoots`:
+
+```js
+...
+packaging: {
+  forceIncludeModuleRoots: ["node_modules/pg"]
+}
+```
+
+The plugin will then treat `node_modules/pg` as if it was imported directly in the bundle. It will also include all the dependencies.
+
+For example: in `knex`, an SQL builder, `pg` is a peer dependency. Inside `knex` it is imported as follows:
+
+```js
+// knex/lib/index.js
+const resolvedClientName = resolveClientNameWithAliases(clientName);
+Dialect = require(`./dialects/${resolvedClientName}/index.js`);
+```
+```js
+// knex/lib/dialects/postgres/index.js
+require('pg');
+```
+
+If you're using `knex`, you'd have to force include `node_modules/pg`
+If you want to bundle `knex`, you would also have to enable `ignoreDynamicImports` in your `rollup.config.js`:
+
+```js
+commonjs({ ignoreDynamicRequires: true }),
+```
+
+This will make sure the `require` call is not changed.
+
+Another solution is to add `knex` to the list of externals. In that case the whole `node_modules/knex` folder will be uploaded, and no code will be transformed.
+
 ## Caveats
 
 ### Externals with side effects
