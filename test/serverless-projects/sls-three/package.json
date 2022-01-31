@@ -1,0 +1,9 @@
+{
+  "name": "sls-three",
+  "version": "0.0.0",
+  "dependencies": {
+    "pg": "latest"
+  },
+  "devDependencies": {
+  }
+}

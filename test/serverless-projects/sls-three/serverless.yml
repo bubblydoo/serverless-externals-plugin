@@ -1,4 +1,4 @@
-service: sls-two
+service: sls-three
 
 provider:
   name: aws
@@ -16,8 +16,6 @@ functions:
     handler: bundle.handler
     externals:
       report: node-externals-report.json
-      exclude:
-        - aws-sdk
     package:
       patterns:
         - "!./**"
