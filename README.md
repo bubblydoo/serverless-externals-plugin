@@ -6,6 +6,8 @@ Only include listed `node_modules` and their dependencies in Serverless.
 
 This plugin helps Serverless package only external modules, and Rollup bundle all the other modules.
 
+![Image](./res/graphic-main.png)
+
 ## Installation
 
 ```bash
@@ -220,7 +222,7 @@ plugins: [
 ]
 ```
 
-## Dynamic imports
+## Dynamic requires
 
 If your code or one of your Node modules does the following:
 
