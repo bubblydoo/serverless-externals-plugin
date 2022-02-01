@@ -129,15 +129,16 @@ const rollupPlugin = (root: string, config: ExternalsConfig): Plugin => {
       return { id: toNodeLocation, external: "relative" };
     },
     async generateBundle(_options, bundle) {
-      if (config.report === false) return;
+      if (resolvedConfig.report === false) return;
       const originalImports: string[] = [];
       for (const fileName in bundle) {
         const imports = (bundle[fileName] as any).imports;
         originalImports.push(...imports);
       }
-      const imports = new Set<string>(config.packaging?.forceIncludeModuleRoots || []);
+      const imports = new Set<string>(resolvedConfig.packaging?.forceIncludeModuleRoots || []);
       for (const originalImport of originalImports) {
         if (builtinModules.includes(originalImport)) continue;
+        if (resolvedConfig.packaging?.exclude?.includes(originalImport)) continue;
         const importFilePath = path.resolve(root, "node_modules", originalImport);
         const importModulePath = await pkgDir(importFilePath);
         if (importModulePath === root) continue;
@@ -153,7 +154,7 @@ const rollupPlugin = (root: string, config: ExternalsConfig): Plugin => {
         config: resolvedConfig,
       };
       const reportFileName =
-        typeof config.report === "string" ? config.report : `node-externals-report.json`;
+        typeof resolvedConfig.report === "string" ? resolvedConfig.report : `node-externals-report.json`;
       this.emitFile({
         type: "asset",
         fileName: reportFileName,

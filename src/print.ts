@@ -28,6 +28,6 @@ export const printExternalNodesWithDifferentVersions = (nodes: Set<NodeOrLink>) 
 };
 
 export const printReport = (modules: Set<string>, reportFileName: string) => {
-  console.log(`Modules actually imported in final bundle (written to ${reportFileName}):`);
+  console.log(`Modules actually imported in final bundle and not excluded from package or force included (written to ${reportFileName}):`);
   console.log(Array.from(modules).map((s) => `- ${s}`).join("\n"));
 };
