@@ -39,6 +39,7 @@
     "treeverse": "^1.0.4"
   },
   "devDependencies": {
+    "@rollup/plugin-json": "^4.1.0",
     "@types/semver": "^7.3.9",
     "@types/serverless": "^1.78.44",
     "npm-run-all": "^4.1.5",

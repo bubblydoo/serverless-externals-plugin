@@ -1,0 +1,22 @@
+service: sls-four
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  stage: dev
+
+package:
+  individually: true
+
+plugins:
+  - ../../../build/cjs/index-cjs.js
+
+functions:
+  handler:
+    handler: bundle.handler
+    externals:
+      report: node-externals-report.json
+    package:
+      patterns:
+        - "!./**"
+        - ./bundle.js
