@@ -111,6 +111,7 @@ The configuration object has these options:
 - `modules: string[]`: a list of module names that should be kept external (default `[]`)
 - `report?: boolean | string`: whether to generate a report or report path (default `${distPath}/node-externals-report.json`)
 - `packaging.exclude?: string[]`: modules which shouldn't be packaged by Serverless (e.g. `['aws-sdk']`, default `[]`)
+- `packaging.forceIncludeModuleRoots?: string[]`: module roots that should always be packaged (e.g. `['node_modules/pg']`, default `[]`)
 - `file?: string`: path to a different configuration object
 
 It's also possible to filter on module versions. (e.g. `uuid@<8`). This uses a semver range.
@@ -255,7 +256,7 @@ Dialect = require(`./dialects/${resolvedClientName}/index.js`);
 require('pg');
 ```
 
-If you're using `knex`, you'd have to force include `node_modules/pg`
+If you're using `knex`, you'd have to force include `node_modules/pg`.
 If you want to bundle `knex`, you would also have to enable `ignoreDynamicImports` in your `rollup.config.js`:
 
 ```js
@@ -264,7 +265,7 @@ commonjs({ ignoreDynamicRequires: true }),
 
 This will make sure the `require` call is not changed.
 
-Another solution is to add `knex` to the list of externals. In that case the whole `node_modules/knex` folder will be uploaded, and no code will be transformed.
+Another solution is to add `knex` to the list of externals. In that case the whole `node_modules/knex` folder will be uploaded, and none of its code will be transformed.
 
 ## Caveats
 
@@ -297,6 +298,33 @@ the [`external` field of Rollup](https://rollupjs.org/guide/en/#external).
 
 As the `aws-sdk` node module is included by default in Lambdas, you can add `packaging.exclude: ["aws-sdk"]` to exclude it from the Serverless package. Note that this is not recommended because of possible version differences. (Check the `aws-sdk` version included in runtimes [here](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html))
 
+### All subdependencies marked as external
+
+When listing modules as external, all their subdependencies will also be marked as external.
+
+For example:
+
+```js
+// rollup.config.js
+plugins: [
+  externals(__dirname, { modules: ["botkit"] }),
+  ...
+]
+```
+
+```js
+// lambda.js
+const express = require('express');
+const serverlessHttp = require('serverless-http');
+const app = express();
+
+module.exports.handler = serverlessHttp(app);
+```
+
+In the resulting bundle, `express` will not be bundled. This is because `botkit` also depends on `express`, and is therefore marked as external. `botkit` itself and the rest of its subdependencies will be filtered out of the modules to be uploaded.
+
+It is therefore recommended to limit the length of the modules array to only the necessary. In that way you can achieve the smallest bundles.
+
 ## Todo
 
 - Ensure compatibility with Serverless Jetpack or speedup packaging somehow
@@ -305,6 +333,7 @@ As the `aws-sdk` node module is included by default in Lambdas, you can add `pac
 - Layer support
 - Look into externalizing single files in a module (e.g. `.node` files), and bundling the rest
 - Yarn PnP support
+- Pre-calculate actually used top-level externals to solve last caveat
 
 ## Motivation
 
