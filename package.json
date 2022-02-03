@@ -1,6 +1,6 @@
 {
   "name": "serverless-externals-plugin",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Only include external node modules and their dependencies in Serverless",
   "main": "./build/cjs/index-cjs.js",
   "module": "./build/esm/index.js",
@@ -28,6 +28,10 @@
   },
   "author": "Hans Otto Wirtz <hansottowirtz@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bubblydoo/serverless-externals-plugin.git"
+  },
   "dependencies": {
     "@npmcli/arborist": "^4.3.0",
     "@rollup/plugin-commonjs": "^21.0.1",
