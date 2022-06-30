@@ -96,6 +96,8 @@ export const buildExternalDependencyListFromConfig = async (
 
   // warn when root external nodes would be filtered out
   Array.from(graph.edgesOut.values()).forEach((edge) => {
+    if (!verifyEdge(edge, options.warn)) return;
+
     if (doesNodePairMatchConfig(config.modules, edge.from, edge.to) && !childrenFilter(edge)) {
       options?.warn?.(
         `Root external node will be filtered out by module filter: ${edge.to.location} (probably because it's in devDependencies)`
