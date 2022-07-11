@@ -1,6 +1,6 @@
 {
   "name": "serverless-externals-plugin",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "description": "Only include external node modules and their dependencies in Serverless",
   "main": "./build/cjs/index-cjs.js",
   "module": "./build/esm/index.js",

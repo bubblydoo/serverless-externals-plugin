@@ -170,8 +170,8 @@ const verifyEdge = (edge: Edge, warn?: (str: string) => void) => {
     return false;
   }
   if (!edge.to) {
-    // peerOptional edges seem to often have no edge.to
-    if (edge.type !== "peerOptional") {
+    // peerOptional and optional edges seem to often have no edge.to
+    if (edge.type !== "peerOptional" && edge.type !== "optional") {
       warn?.(`Edge has no to node, skipping:\n${prettyJson(edge)}`);
     }
     return false;
