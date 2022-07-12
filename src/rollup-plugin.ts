@@ -82,7 +82,10 @@ const rollupPlugin = (root: string, config: ExternalsConfig): Plugin => {
         }
         const importeeEdge = fromNode.edgesOut.get(importeeModuleId);
         if (!importeeEdge) {
-          this.warn(`No edge found for: ${prettyJson(importeeModuleId)} (from ${importee})`);
+          if (importeeModuleId !== importee) {
+            // only warn when a module isn't trying to import itself, which happens frequently
+            this.warn(`No edge found for: ${prettyJson(importeeModuleId)} (from ${importee})`);
+          }
           return RESOLVE_ID_DEFER;
         }
         toNode = importeeEdge.to;
