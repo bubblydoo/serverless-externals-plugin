@@ -7,12 +7,12 @@ import {
   ExternalsConfig,
   ExternalsReport,
   resolveExternalsConfig,
-} from "./core";
-import { printExternalNodes, printExternalNodesWithDifferentVersions, printReport } from "./print";
+} from "./core.js";
+import { printExternalNodes, printExternalNodesWithDifferentVersions, printReport } from "./print.js";
 import builtinModules from "builtin-modules";
-import { prettyJson } from "./util/pretty-json";
+import { prettyJson } from "./util/pretty-json.js";
 import path from "path";
-import { dependenciesChildrenFilter } from "./default-filter";
+import { dependenciesChildrenFilter } from "./default-filter.js";
 
 /** Defer id resolving to other plugins or default behavior */
 const RESOLVE_ID_DEFER: null = null;

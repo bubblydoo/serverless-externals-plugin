@@ -1,26 +1,27 @@
 {
   "name": "serverless-externals-plugin",
-  "version": "0.2.11",
+  "version": "0.2.13",
   "description": "Only include external node modules and their dependencies in Serverless",
+  "type": "module",
   "main": "./build/cjs/index-cjs.js",
   "module": "./build/esm/index.js",
   "exports": {
     ".": {
-      "import": "./build/esm/index.js",
-      "default": "./build/cjs/index-cjs.js"
+      "default": "./build/esm/index.js",
+      "require": "./build/cjs/index-cjs.js"
     },
     "./rollup-plugin": {
-      "import": "./build/esm/rollup-plugin.js",
-      "default": "./build/cjs/rollup-plugin.js"
+      "default": "./build/esm/rollup-plugin.js",
+      "require": "./build/cjs/rollup-plugin.js"
     },
     "./serverless-plugin": {
-      "import": "./build/esm/serverless-plugin.js",
-      "default": "./build/cjs/serverless-plugin.js"
+      "default": "./build/esm/serverless-plugin.js",
+      "require": "./build/cjs/serverless-plugin.js"
     }
   },
   "scripts": {
     "prepublishOnly": "npm run build",
-    "build": "tsc && tsc -p tsconfig.cjs.json",
+    "build": "tsc && tsc -p tsconfig.cjs.json && node fixup-cjs.mjs",
     "test": "run-s test:*",
     "test:setup-packages": "ls -d test/packages/*/ | xargs -I {} bash -c \"cd '{}' && npm pack\"",
     "test:npm-projects": "ls -d test/npm-projects/*/ | xargs -I {} bash -c \"cd '{}' && npm i && rollup -c && node --unhandled-rejections=strict test/run.test.js && node --unhandled-rejections=strict test/contents.test.js\"",

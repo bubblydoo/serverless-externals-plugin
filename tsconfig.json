@@ -1,15 +1,15 @@
 {
   "compilerOptions": {
-    "module": "esnext",
+    "module": "NodeNext",
     "outDir": "build/esm",
     "declaration": true,
     "incremental": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "noFallthroughCasesInSwitch": true,
-    "target": "esnext",
+    "target": "ESNext",
     "noImplicitAny": true,
-    "moduleResolution": "node",
+    "moduleResolution": "NodeNext",
     "sourceMap": false,
     "typeRoots": ["node_modules/@types", "src/types"],
     "allowJs": false

@@ -1,6 +1,6 @@
 import { Graph, NodeOrLink } from "@npmcli/arborist";
 import Serverless, { Options } from "serverless";
-import Plugin, { Hooks } from "serverless/classes/Plugin";
+import Plugin, { Hooks } from "serverless/classes/Plugin.js";
 import {
   buildDependencyGraph,
   buildExternalDependencyListFromReport,
@@ -8,8 +8,8 @@ import {
   ExternalsReport,
   ExternalsReportRef,
   resolveExternalsReport,
-} from "./core";
-import { dependenciesChildrenFilter } from "./default-filter";
+} from "./core.js";
+import { dependenciesChildrenFilter } from "./default-filter.js";
 
 interface FunctionPackage {
   individually: boolean;

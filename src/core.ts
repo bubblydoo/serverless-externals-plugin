@@ -1,8 +1,8 @@
-import Arborist, { Node, Edge, NodeOrLink, Graph } from "@npmcli/arborist";
+import Arborist, { Edge, NodeOrLink, Graph } from "@npmcli/arborist";
 import path from "path";
-import { depth } from "treeverse";
+import treeverse from "treeverse";
 import semver from "semver";
-import { prettyJson } from "./util/pretty-json";
+import { prettyJson } from "./util/pretty-json.js";
 import { promises as fs } from "fs";
 
 export interface ExternalsConfigRef {
@@ -106,7 +106,7 @@ export const buildExternalDependencyListFromConfig = async (
   });
 
   // depth-first search for matching edges
-  depth({
+  treeverse.depth({
     tree: null,
     getChildren: (edge: Edge) => {
       if (edge && !verifyEdge(edge)) return [];
@@ -143,7 +143,7 @@ const findAllNodeChildren = (
   Array.from(node.edgesOut.values())
     .filter(childrenFilter)
     .forEach((rootEdge) => {
-      depth({
+      treeverse.depth({
         tree: rootEdge,
         getChildren: (edge: Edge) => {
           if (edge && !verifyEdge(edge)) return [];
