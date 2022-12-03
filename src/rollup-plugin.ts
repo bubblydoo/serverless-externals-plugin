@@ -8,7 +8,11 @@ import {
   ExternalsReport,
   resolveExternalsConfig,
 } from "./core.js";
-import { printExternalNodes, printExternalNodesWithDifferentVersions, printReport } from "./print.js";
+import {
+  printExternalNodes,
+  printExternalNodesWithDifferentVersions,
+  printReport,
+} from "./print.js";
 import builtinModules from "builtin-modules";
 import { prettyJson } from "./util/pretty-json.js";
 import path from "path";
@@ -17,7 +21,11 @@ import { dependenciesChildrenFilter } from "./default-filter.js";
 /** Defer id resolving to other plugins or default behavior */
 const RESOLVE_ID_DEFER: null = null;
 
-const rollupPlugin = (root: string, config: ExternalsConfig): Plugin => {
+const rollupPlugin = (
+  root: string,
+  config: ExternalsConfig,
+  { logExternalNodes, logReport } = { logExternalNodes: false, logReport: false }
+): Plugin => {
   let graph: Graph;
   let externalNodes = new Set<NodeOrLink>();
   let resolvedConfig: ExternalsConfig;
@@ -36,8 +44,10 @@ const rollupPlugin = (root: string, config: ExternalsConfig): Plugin => {
         }
       );
 
-      printExternalNodes(externalNodes);
-      printExternalNodesWithDifferentVersions(externalNodes);
+      if (logExternalNodes) {
+        printExternalNodes(externalNodes);
+        printExternalNodesWithDifferentVersions(externalNodes);
+      }
     },
     async resolveId(importee: string, importer: string | undefined) {
       // ?commonjs-proxy, ?commonjs-require and ?commonjs-external start with \0,
@@ -101,7 +111,9 @@ const rollupPlugin = (root: string, config: ExternalsConfig): Plugin => {
           if (!toNode) {
             // When a rogue package.json is included somewhere in the dist of a module
             // e.g. see https://github.com/aws/aws-sdk-js-v3/issues/2740
-            this.error(`Module's package.json doesn't belong to current node_modules tree: ${importee}`);
+            this.error(
+              `Module's package.json doesn't belong to current node_modules tree: ${importee}`
+            );
           }
         } else {
           this.error(`Couldn't find package dir for ${importee}`);
@@ -157,13 +169,17 @@ const rollupPlugin = (root: string, config: ExternalsConfig): Plugin => {
         config: resolvedConfig,
       };
       const reportFileName =
-        typeof resolvedConfig.report === "string" ? resolvedConfig.report : `node-externals-report.json`;
+        typeof resolvedConfig.report === "string"
+          ? resolvedConfig.report
+          : `node-externals-report.json`;
       this.emitFile({
         type: "asset",
         fileName: reportFileName,
         source: JSON.stringify(report, null, 2),
       });
-      printReport(imports, reportFileName);
+      if (logReport) {
+        printReport(imports, reportFileName);
+      }
     },
   };
 
