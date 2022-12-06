@@ -1,5 +1,4 @@
 import { Graph, NodeOrLink } from "@npmcli/arborist";
-import pkgDir from "pkg-dir";
 import { Plugin } from "rollup";
 import {
   buildDependencyGraph,
@@ -17,6 +16,8 @@ import builtinModules from "builtin-modules";
 import { prettyJson } from "./util/pretty-json.js";
 import path from "path";
 import { dependenciesChildrenFilter } from "./default-filter.js";
+import { findUp } from "find-up";
+import { promises as fs } from "fs";
 
 /** Defer id resolving to other plugins or default behavior */
 const RESOLVE_ID_DEFER: null = null;
@@ -147,7 +148,9 @@ const rollupPlugin = (
       if (resolvedConfig.report === false) return;
       const originalImports: string[] = [];
       for (const fileName in bundle) {
-        const imports = (bundle[fileName] as any).imports;
+        const chunk = bundle[fileName];
+        if (chunk.type !== "chunk") continue;
+        const imports = chunk.imports;
         originalImports.push(...imports);
       }
       const imports = new Set<string>(resolvedConfig.packaging?.forceIncludeModuleRoots || []);
@@ -218,3 +221,21 @@ const analyzeImporteeName = (importee: string) => {
 const splitAt = (x: string, index: number) => [x.slice(0, index), x.slice(index)];
 
 export default rollupPlugin;
+
+/**
+ * Find the nearest dir with package.json,
+ * but only if that package.json has a 'name' field
+ * This skips the `{"type": "module"}` and `{"type": "module"}` packages
+ *
+ * @see https://github.com/sindresorhus/pkg-dir/blob/main/index.js
+ */
+export async function pkgDir(cwd: string) {
+  const filePath = await findUp(async (dir) => {
+    const file = path.join(dir, 'package.json');
+    const contents = await fs.readFile(file).catch((e) => null);
+    if (!contents) return;
+    if (JSON.parse(contents).name) return file;
+  }, { cwd });
+
+  return filePath && path.dirname(filePath);
+}
