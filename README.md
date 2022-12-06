@@ -90,7 +90,7 @@ In `rollup.config.js`:
 ```js
 output: { file: "dist/bundle.js", format: "cjs" },
 plugins: [
-  externals(__dirname, { modules: ["aws-sdk"] }),
+  externals(__dirname, { modules: ["aws-sdk"], packaging: { exclude: ["aws-sdk"] } }),
   ...
 ]
 ```
@@ -174,8 +174,8 @@ const config = {
     moduleSideEffects: "no-external",
   },
   plugins: [
-    externals(__dirname, { modules: ["aws-sdk"] }),
-    commonjs(),
+    externals(__dirname, { modules: ["aws-sdk"], packaging: { exclude: ["aws-sdk"] } }),
+    commonjs({ strictMode: true }),
     nodeResolve({ preferBuiltins: true, exportConditions: ["node"] }),
   ],
 };
@@ -191,6 +191,8 @@ By setting this option Rollup will assume external modules have no side effects.
 (`"no-external"` is equivalent to `(id, external) => !external`)
 
 Preferably, also set `exportConditions: ["node"]` as an option in the node-resolve plugin. This ensures that Rollup uses Node's resolution algorithm, so that packages like [`uuid` can be bundled](https://github.com/uuidjs/uuid/issues/544).
+
+Next to that, in rare cases setting `strictMode: true` in the commonjs plugin can help bundling some modules that depend on the order of requires, like `aws-sdk` when only importing `aws-sdk/clients/dynamodb`.
 
 ### Implementation
 
