@@ -1,9 +1,10 @@
-import Arborist, { Edge, NodeOrLink, Graph } from "@npmcli/arborist";
+import Arborist, { Edge, NodeOrLink, Graph, Node } from "@npmcli/arborist";
 import path from "path";
 import treeverse from "treeverse";
 import semver from "semver";
 import { prettyJson } from "./util/pretty-json.js";
 import { promises as fs } from "fs";
+import { mergeMaps } from "./util/merge-maps.js";
 
 export interface ExternalsConfigRef {
   file?: string;
@@ -30,6 +31,8 @@ export interface ExternalsReport {
   importedModuleRoots: string[];
   /** Original config */
   config: ExternalsConfig;
+  /** Locations of node_modules paths, in order of priority */
+  nodeModulesTreePaths: string[]
 }
 
 export const resolveExternalsConfig = async (
@@ -67,7 +70,7 @@ export const buildDependencyGraph = async (root: string) => {
 };
 
 export const buildExternalDependencyListFromReport = async (
-  graph: Graph,
+  graphs: RelativeGraph[],
   report: ExternalsReport,
   childrenFilter: (edge: Edge) => boolean = () => true,
   moduleFilter: (node: NodeOrLink) => boolean = () => true,
@@ -75,10 +78,12 @@ export const buildExternalDependencyListFromReport = async (
 ) => {
   const externalNodes = new Set<NodeOrLink>();
 
+  const graphsRelativeInventory = mergeMaps(graphs.map((g) => g.relativeInventory));
+
   for (const importedModuleRoot of report.importedModuleRoots) {
-    const rootExternalNode = graph.inventory.get(importedModuleRoot);
+    const rootExternalNode = graphsRelativeInventory.get(importedModuleRoot);
     externalNodes.add(rootExternalNode);
-    const nodes = findAllNodeChildren(rootExternalNode, childrenFilter, options);
+    const nodes = findAllNodeChildren(rootExternalNode.edgesOut, childrenFilter, options);
     for (const node of nodes) externalNodes.add(node);
   }
 
@@ -86,7 +91,7 @@ export const buildExternalDependencyListFromReport = async (
 };
 
 export const buildExternalDependencyListFromConfig = async (
-  graph: Graph,
+  graphsEdgesOut: Graph["edgesOut"],
   config: ExternalsConfig,
   childrenFilter: (edge: Edge) => boolean = () => true,
   moduleFilter: (node: NodeOrLink) => boolean = () => true,
@@ -95,7 +100,7 @@ export const buildExternalDependencyListFromConfig = async (
   const externalNodes = new Set<NodeOrLink>();
 
   // warn when root external nodes would be filtered out
-  Array.from(graph.edgesOut.values()).forEach((edge) => {
+  Array.from(graphsEdgesOut.values()).forEach((edge) => {
     if (!verifyEdge(edge, options.warn)) return;
 
     if (doesNodePairMatchConfig(config.modules, edge.from, edge.to) && !childrenFilter(edge)) {
@@ -110,8 +115,8 @@ export const buildExternalDependencyListFromConfig = async (
     tree: null,
     getChildren: (edge: Edge) => {
       if (edge && !verifyEdge(edge)) return [];
-      const edgesOut = edge === null ? graph.edgesOut : edge.to.edgesOut;
-      return Array.from(edgesOut.values()).filter(childrenFilter);
+      const edgeEdgesOut = edge === null ? graphsEdgesOut : edge.to.edgesOut;
+      return Array.from(edgeEdgesOut.values()).filter(childrenFilter);
     },
     visit: (edge: Edge) => {
       if (edge === null) return;
@@ -125,7 +130,7 @@ export const buildExternalDependencyListFromConfig = async (
 
   // include every dependency of external nodes
   Array.from(externalNodes).forEach((rootExternalNode) => {
-    const nodes = findAllNodeChildren(rootExternalNode, childrenFilter, options);
+    const nodes = findAllNodeChildren(rootExternalNode.edgesOut, childrenFilter, options);
     for (const node of nodes) externalNodes.add(node);
   });
 
@@ -133,14 +138,14 @@ export const buildExternalDependencyListFromConfig = async (
 };
 
 const findAllNodeChildren = (
-  node: NodeOrLink,
+  graphsEdgesOut: Node["edgesOut"],
   childrenFilter: (edge: Edge) => boolean = () => true,
   options: { warn?: (str: string) => void } = {}
 ) => {
   const externalNodes = new Set<NodeOrLink>();
 
   // depth-first find every dependency of node
-  Array.from(node.edgesOut.values())
+  Array.from(graphsEdgesOut.values())
     .filter(childrenFilter)
     .forEach((rootEdge) => {
       treeverse.depth({
@@ -189,3 +194,20 @@ const doesNodePairMatchConfig = (modules: string[], from: NodeOrLink, to: NodeOr
     return false;
   });
 };
+
+export function makeInventoryRelative(inventory: Graph["inventory"], mainRoot: string, root: string) {
+  if (mainRoot === root) return inventory;
+  const diff = path.relative(mainRoot, root);
+  return new Map([...inventory.entries()].map(([k, v]) => [path.join(diff, k), v]));
+}
+
+export type RelativeGraph = { orig: Graph, relativeInventory: Graph["inventory"] };
+
+export async function buildRelativeDependencyGraphs(roots: string[], mainRoot: string) {
+  const graphs: RelativeGraph[] = await Promise.all(roots.map(async (root) => {
+    const orig = await buildDependencyGraph(root);
+    const relativeInventory = makeInventoryRelative(orig.inventory, mainRoot, root);
+    return { orig, relativeInventory };
+  }));
+  return graphs;
+}

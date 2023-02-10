@@ -1,11 +1,12 @@
-import { Graph, NodeOrLink } from "@npmcli/arborist";
+import { Edge, Graph, NodeOrLink } from "@npmcli/arborist";
 import { Plugin } from "rollup";
 import {
-  buildDependencyGraph,
   buildExternalDependencyListFromConfig,
   ExternalsConfig,
   ExternalsReport,
+  RelativeGraph,
   resolveExternalsConfig,
+  buildRelativeDependencyGraphs,
 } from "./core.js";
 import {
   printExternalNodes,
@@ -18,25 +19,36 @@ import path from "path";
 import { dependenciesChildrenFilter } from "./default-filter.js";
 import findUp from "find-up";
 import { promises as fs } from "fs";
+import { mergeMaps } from "./util/merge-maps.js";
 
 /** Defer id resolving to other plugins or default behavior */
 const RESOLVE_ID_DEFER: null = null;
 
 const rollupPlugin = (
-  root: string,
+  root: string | string[],
   config: ExternalsConfig,
   { logExternalNodes, logReport } = { logExternalNodes: false, logReport: false }
 ): Plugin => {
-  let graph: Graph;
+  const roots = Array.isArray(root) ? root : [root];
+  const mainRoot = roots[0];
+  let graphs: RelativeGraph[];
   let externalNodes = new Set<NodeOrLink>();
   let resolvedConfig: ExternalsConfig;
+  let graphsEdgesOut: Graph["edgesOut"];
+  let graphsInventory: Graph["inventory"];
+  let graphsRelativeInventory: Graph["inventory"];
+
   const plugin: Plugin = {
     name: "serverless-externals-plugin",
     async buildStart() {
-      graph = await buildDependencyGraph(root);
-      resolvedConfig = await resolveExternalsConfig(config, root);
+      graphs = await buildRelativeDependencyGraphs(roots, mainRoot);
+      graphsEdgesOut = mergeMaps<string, Edge>(graphs.map((g) => g.orig.edgesOut), (v) => v.missing);
+      graphsInventory = mergeMaps(graphs.map((g) => g.orig.inventory));
+      graphsRelativeInventory = mergeMaps(graphs.map((g) => g.relativeInventory));
+
+      resolvedConfig = await resolveExternalsConfig(config, roots[0]);
       externalNodes = await buildExternalDependencyListFromConfig(
-        graph,
+        graphsEdgesOut,
         resolvedConfig,
         dependenciesChildrenFilter,
         () => true,
@@ -76,8 +88,8 @@ const rollupPlugin = (
       if (importer) {
         const fromPackageDir = await pkgDir(importer);
         if (fromPackageDir) {
-          const fromInventoryKey = getRelativeDirPath(root, fromPackageDir);
-          fromNode = graph.inventory.get(fromInventoryKey);
+          const fromInventoryKey = getRelativeDirPath(roots[0], fromPackageDir);
+          fromNode = graphsRelativeInventory.get(fromInventoryKey);
         } else {
           this.error(`Couldn't find package dir for ${importer}`);
         }
@@ -91,9 +103,10 @@ const rollupPlugin = (
         if (builtinModules.includes(importeeModuleId)) {
           return RESOLVE_ID_DEFER;
         }
-        const importeeEdge = fromNode.edgesOut.get(importeeModuleId);
+        // if it's a workspace, then the edge might be missing, so we import from the graphs
+        const importeeEdge = (fromNode.isRoot ? graphsEdgesOut : fromNode.edgesOut).get(importeeModuleId);
         if (!importeeEdge) {
-          if (importeeModuleId !== importee) {
+          if (importeeModuleId !== importee && !importee.includes(`${importeeModuleId}/`)) {
             // only warn when a module isn't trying to import itself, which happens frequently
             this.warn(`No edge found for: ${prettyJson(importeeModuleId)} (from ${importee})`);
           }
@@ -102,13 +115,13 @@ const rollupPlugin = (
         toNode = importeeEdge.to;
       } else {
         const toPackageDir = await pkgDir(importee);
-        if (toPackageDir === root) {
+        if (toPackageDir === roots[0]) {
           // it's an entrypoint
           return RESOLVE_ID_DEFER;
         } else if (toPackageDir) {
           // it's a node module (possibly through a link)
-          const toInventoryKey = getRelativeDirPath(root, toPackageDir);
-          toNode = graph.inventory.get(toInventoryKey);
+          const toInventoryKey = getRelativeDirPath(roots[0], toPackageDir);
+          toNode = graphsRelativeInventory.get(toInventoryKey);
           if (!toNode) {
             // When a rogue package.json is included somewhere in the dist of a module
             // e.g. see https://github.com/aws/aws-sdk-js-v3/issues/2740
@@ -156,20 +169,22 @@ const rollupPlugin = (
       const imports = new Set<string>(resolvedConfig.packaging?.forceIncludeModuleRoots || []);
       for (const originalImport of originalImports) {
         if (builtinModules.includes(originalImport)) continue;
-        if (resolvedConfig.packaging?.exclude?.includes(originalImport)) continue;
-        const importFilePath = path.resolve(root, "node_modules", originalImport);
-        const importModulePath = await pkgDir(importFilePath);
-        if (importModulePath === root) continue;
-        if (!importModulePath) {
+        /** e.g. pkg3 or pkg2/node_modules/pkg3, but no path imports */
+        const originalImportModuleRoot = extractModuleRootFromImport(originalImport);
+        if (resolvedConfig.packaging?.exclude?.includes(originalImportModuleRoot)) continue;
+        const node = graphsInventory.get(`node_modules/${originalImportModuleRoot}`);
+        if (!node) {
           this.warn(`No module found for: ${prettyJson(originalImport)}`);
           continue;
         }
-        imports.add(getRelativeDirPath(root, importModulePath));
+        if (node.path === mainRoot) continue;
+        imports.add(getRelativeDirPath(mainRoot, node.path));
       }
       const report: ExternalsReport = {
         isReport: true,
         importedModuleRoots: Array.from(imports),
         config: resolvedConfig,
+        nodeModulesTreePaths: roots.map(r => path.join(path.relative(mainRoot, r), 'node_modules')),
       };
       const reportFileName =
         typeof resolvedConfig.report === "string"
@@ -238,4 +253,20 @@ export async function pkgDir(cwd: string) {
   }, { cwd });
 
   return filePath && path.dirname(filePath);
+}
+
+
+/**
+ * Turn `pkg2/node_modules/pkg3/stuff` into `pkg2/node_modules/pkg3`
+ */
+function extractModuleRootFromImport(moduleName: string) {
+  const parts = moduleName.split('/');
+  let i = 0;
+  const keep = [];
+  for (const part of parts) {
+    if (part !== "node_modules" && i % 2 === 1) break;
+    keep.push(part);
+    i++;
+  }
+  return keep.join('/');
 }

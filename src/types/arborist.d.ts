@@ -42,6 +42,7 @@ declare module "@npmcli/arborist" {
     valid: boolean;
     missing: boolean;
     invalid: boolean;
+    workspace: boolean;
     type: "prod" | "dev" | "peer" | "optional" | "peerOptional" | "workspace";
     spec: any;
     error: "DETACHED" | "MISSING" | "PEER LOCAL" | "INVALID" | null;

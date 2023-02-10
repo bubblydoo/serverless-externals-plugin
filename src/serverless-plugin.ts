@@ -1,13 +1,15 @@
-import { Graph, NodeOrLink } from "@npmcli/arborist";
+import { NodeOrLink } from "@npmcli/arborist";
+import path from "path";
 import Serverless, { Options } from "serverless";
 import Plugin, { Hooks } from "serverless/classes/Plugin.js";
 import {
-  buildDependencyGraph,
   buildExternalDependencyListFromReport,
   ExternalsConfig,
   ExternalsReport,
   ExternalsReportRef,
+  RelativeGraph,
   resolveExternalsReport,
+  buildRelativeDependencyGraphs,
 } from "./core.js";
 import { dependenciesChildrenFilter } from "./default-filter.js";
 
@@ -68,32 +70,31 @@ class ExternalsPlugin implements Plugin {
     };
   }
 
-  async packageFunction(fnPkg: FunctionPackage, graph: Graph, root: string) {
+  async packageFunction(fnPkg: FunctionPackage, serviceRoot: string) {
     const obj = fnPkg.functionObject;
     const subject = `"${fnPkg.functionName}"`;
     obj.package = obj.package || {};
     obj.package.patterns = obj.package.patterns || [];
     obj.package.patterns = [
       ...obj.package.patterns,
-      ...(await this.generatePatternsFromReport(obj.externals, graph, root, subject)),
+      ...(await this.generatePatternsFromReport(obj.externals, serviceRoot, subject)),
     ];
   }
 
-  async packageService(fnObjs: FunctionPackage["functionObject"][], graph: Graph, root: string) {
+  async packageService(fnObjs: FunctionPackage["functionObject"][], serviceRoot: string) {
     const service = this.serverless.service;
     const subject = "service";
     service.package = service.package || {};
     service.package.patterns = service.package.patterns || [];
     service.package.patterns = [
       ...service.package.patterns,
-      ...(await this.generatePatternsFromReport(service.custom?.externals, graph, root, subject)),
+      ...(await this.generatePatternsFromReport(service.custom?.externals, serviceRoot, subject)),
     ];
   }
 
   private async generatePatternsFromReport(
     ref: ExternalsReportRef,
-    graph: Graph,
-    root: string,
+    serviceRoot: string,
     logSubject: string
   ): Promise<string[]> {
     if (!ref) {
@@ -103,7 +104,7 @@ class ExternalsPlugin implements Plugin {
       return [];
     }
 
-    const report = await resolveExternalsReport(ref, root);
+    const report = await resolveExternalsReport(ref, serviceRoot);
 
     const resolvedConfig = report.config;
 
@@ -114,13 +115,17 @@ class ExternalsPlugin implements Plugin {
       return [];
     }
 
-    const dependencyList = await buildExternalDependencyListFromReportHelper(report, graph);
+    const roots = report.nodeModulesTreePaths.map((r) => path.resolve(serviceRoot, r, '..'));
+
+    const graphs = await buildRelativeDependencyGraphs(roots, serviceRoot);
+
+    const dependencyList = await buildExternalDependencyListFromReportHelper(report, graphs);
 
     this.log(
       `Setting package patterns for ${logSubject} for ${dependencyList.size} external modules`
     );
 
-    const patternsList = generatePatternsList(dependencyList);
+    const patternsList = generatePatternsList(dependencyList, serviceRoot, roots);
 
     return patternsList;
   }
@@ -193,7 +198,6 @@ class ExternalsPlugin implements Plugin {
       tasks.push(() =>
         this.packageService(
           serviceFnsToPkg.map((o) => o.functionObject),
-          graph,
           root
         )
       );
@@ -205,9 +209,8 @@ class ExternalsPlugin implements Plugin {
     service.package.excludeDevDependencies = false;
 
     const root = this.serverless.config.servicePath;
-    const graph = await buildDependencyGraph(root);
 
-    tasks.push(...fnsPkgsToPackage.map((obj) => () => this.packageFunction(obj, graph, root)));
+    tasks.push(...fnsPkgsToPackage.map((obj) => () => this.packageFunction(obj, root)));
 
     await Promise.all(tasks.map((t) => t()));
   }
@@ -237,11 +240,12 @@ class ExternalsPlugin implements Plugin {
  * `./node_modules/pkg2/node_modules/pkg3/**`
  * `!./node_modules/pkg2/node_modules/pkg3/node_modules`
  */
-const generatePatternsList = (dependencyList: Set<NodeOrLink>) => {
-  const patternsList = ["!./node_modules/**"];
+const generatePatternsList = (dependencyList: Set<NodeOrLink>, serviceRoot: string, roots: string[]) => {
+  const patternsList = roots.map(r => r === serviceRoot ? `!./node_modules/**` : `!./${path.relative(serviceRoot, r)}/node_modules/**`);
   dependencyList.forEach((node) => {
-    patternsList.push(`./${node.location}/**`);
-    patternsList.push(`!./${node.location}/node_modules`);
+    const rel = path.relative(serviceRoot, node.path);
+    patternsList.push(`./${rel}/**`);
+    patternsList.push(`!./${rel}/node_modules`);
   });
   return patternsList;
 };
@@ -256,10 +260,10 @@ const getModuleFilter = (resolvedConfig: ExternalsConfig) => {
 
 const buildExternalDependencyListFromReportHelper = async (
   report: ExternalsReport,
-  graph: Graph
+  graphs: RelativeGraph[]
 ) => {
   return await buildExternalDependencyListFromReport(
-    graph,
+    graphs,
     report,
     dependenciesChildrenFilter,
     getModuleFilter(report.config),
