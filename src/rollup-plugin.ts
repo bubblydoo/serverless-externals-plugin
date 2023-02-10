@@ -16,7 +16,7 @@ import builtinModules from "builtin-modules";
 import { prettyJson } from "./util/pretty-json.js";
 import path from "path";
 import { dependenciesChildrenFilter } from "./default-filter.js";
-import { findUp } from "find-up";
+import findUp from "find-up";
 import { promises as fs } from "fs";
 
 /** Defer id resolving to other plugins or default behavior */
