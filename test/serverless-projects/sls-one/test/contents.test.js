@@ -6,6 +6,7 @@ const assert = require("assert");
   const zip = new AdmZip(path.resolve(__dirname, "../.serverless/handler.zip"));
   const zipEntries = zip.getEntries();
   const fileNames = zipEntries.map((ze) => ze.entryName);
+  console.log(fileNames)
   assert(fileNames.includes('node_modules/pkg3/index.js'));
   assert(fileNames.includes('node_modules/pkg3/stuff.js'));
   assert(fileNames.includes('node_modules/pkg3/package.json'));

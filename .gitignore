@@ -1,7 +1,6 @@
 *.tgz
 test/**/bundle.js
 test/**/node-externals-report.json
-test/**/package-lock.json
 build
 
 # Example project things
