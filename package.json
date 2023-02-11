@@ -1,22 +1,21 @@
 {
   "name": "serverless-externals-plugin",
-  "version": "0.3.0-beta.1",
+  "version": "0.3.0-beta.2",
   "description": "Only include external node modules and their dependencies in Serverless",
   "type": "module",
-  "main": "./build/cjs/index-cjs.js",
-  "module": "./build/esm/index.js",
+  "main": "./build/esm/index.js",
   "exports": {
     ".": {
-      "default": "./build/esm/index.js",
-      "require": "./build/cjs/index-cjs.js"
+      "require": "./build/cjs/index-cjs.js",
+      "default": "./build/esm/index.js"
     },
     "./rollup-plugin": {
-      "default": "./build/esm/rollup-plugin.js",
-      "require": "./build/cjs/rollup-plugin.js"
+      "require": "./build/cjs/rollup-plugin.js",
+      "default": "./build/esm/rollup-plugin.js"
     },
     "./serverless-plugin": {
-      "default": "./build/esm/serverless-plugin.js",
-      "require": "./build/cjs/serverless-plugin.js"
+      "require": "./build/cjs/serverless-plugin.js",
+      "default": "./build/esm/serverless-plugin.js"
     }
   },
   "scripts": {
