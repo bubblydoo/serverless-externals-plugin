@@ -244,7 +244,7 @@ export default rollupPlugin;
  *
  * @see https://github.com/sindresorhus/pkg-dir/blob/main/index.js
  */
-export async function pkgDir(cwd: string) {
+async function pkgDir(cwd: string) {
   const filePath = await findUp(async (dir) => {
     const file = path.join(dir, 'package.json');
     const contents = await fs.readFile(file).catch((e) => null);
