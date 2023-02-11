@@ -241,13 +241,16 @@ class ExternalsPlugin implements Plugin {
  * `!./node_modules/pkg2/node_modules/pkg3/node_modules`
  */
 const generatePatternsList = (dependencyList: Set<NodeOrLink>, serviceRoot: string, roots: string[]) => {
-  const patternsList = roots.map(r => r === serviceRoot ? `!./node_modules/**` : `!./${path.relative(serviceRoot, r)}/node_modules/**`);
+  const patternsList = roots.map(root => {
+    const rel = path.relative(serviceRoot, root);
+    return `!./${rel}/node_modules/**`
+  });
   dependencyList.forEach((node) => {
     const rel = path.relative(serviceRoot, node.path);
     patternsList.push(`./${rel}/**`);
     patternsList.push(`!./${rel}/node_modules`);
   });
-  return patternsList;
+  return patternsList.map(r => r.replaceAll('./../', '../').replaceAll('//', '/'));
 };
 
 const getModuleFilter = (resolvedConfig: ExternalsConfig) => {
