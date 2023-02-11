@@ -5,7 +5,7 @@
     "pkg2": "file:../../packages/pkg2-0.0.1/pkg2-0.0.1.tgz",
     "pkg5": "file:../../packages/pkg5-1.0.0/pkg5-1.0.0.tgz",
     "pkg6": "file:../../packages/pkg6-1.0.0/pkg6-1.0.0.tgz",
-    "serverless": "^2.55.0"
+    "serverless": "^3.27.0"
   },
   "devDependencies": {
     "adm-zip": "^0.5.6",
