@@ -269,6 +269,40 @@ This will make sure the `require` call is not changed.
 
 Another solution is to add `knex` to the list of externals. In that case the whole `node_modules/knex` folder will be uploaded, and none of its code will be transformed.
 
+## Usage in monorepos/workspaces
+
+If your serverless project is a workspace within a larger monorepo, this is also supported, although not yet fully tested.
+
+For example, in `apps/lambdas/rollup.config.js`:
+
+```js
+const roots = [__dirname, path.resolve(__dirname, "../..")];
+
+...
+
+plugins: [
+  externals(roots, { modules: ["undici"] }),
+  ...
+]
+```
+
+If `undici` is installed the monorepo root, the serverless plugin will generate include patterns as follows:
+
+```
+!./node_modules/**
+!../../node_modules/**
+../../node_modules/undici/**
+!../../node_modules/undici/node_modules
+../../node_modules/busboy/**
+!../../node_modules/busboy/node_modules
+../../node_modules/streamsearch/**
+!../../node_modules/streamsearch/node_modules
+```
+
+Due to the way packaging in serverless works, in the final package,
+the included modules from the root node_modules will be merged with the included workspace node_modules,
+which is exactly what we want.
+
 ## Caveats
 
 ### Externals with side effects
@@ -326,40 +360,6 @@ module.exports.handler = serverlessHttp(app);
 In the resulting bundle, `express` will not be bundled. This is because `botkit` also depends on `express`, and is therefore marked as external. `botkit` itself and the rest of its subdependencies will be filtered out of the modules to be uploaded.
 
 It is therefore recommended to limit the length of the modules array to only the necessary. In that way you can achieve the smallest bundles.
-
-### Usage in monorepos/workspaces
-
-If your serverless project is a workspace within a larger monorepo, this is also supported, although not yet fully tested.
-
-For example, in `apps/lambdas/rollup.config.js`:
-
-```js
-const roots = [__dirname, path.resolve(__dirname, "../..")];
-
-...
-
-plugins: [
-  externals(roots, { modules: ["undici"] }),
-  ...
-]
-```
-
-If `undici` is installed the monorepo root, the serverless plugin will generate include patterns as follows:
-
-```
-!./node_modules/**
-!../../node_modules/**
-../../node_modules/undici/**
-!../../node_modules/undici/node_modules
-../../node_modules/busboy/**
-!../../node_modules/busboy/node_modules
-../../node_modules/streamsearch/**
-!../../node_modules/streamsearch/node_modules
-```
-
-Due to the way packaging in serverless works, in the final package,
-the included modules from the root node_modules will be merged with the included workspace node_modules,
-which is exactly what we want.
 
 ## Todo
 
