@@ -259,7 +259,7 @@ require('pg');
 ```
 
 If you're using `knex`, you'd have to force include `node_modules/pg`.
-If you want to bundle `knex`, you would also have to enable `ignoreDynamicImports` in your `rollup.config.js`:
+If you want to bundle `knex`, you would also have to enable `ignoreDynamicRequires` in your `rollup.config.js`:
 
 ```js
 commonjs({ ignoreDynamicRequires: true }),
