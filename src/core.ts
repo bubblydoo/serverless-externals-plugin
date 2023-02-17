@@ -82,6 +82,7 @@ export const buildExternalDependencyListFromReport = async (
 
   for (const importedModuleRoot of report.importedModuleRoots) {
     const rootExternalNode = graphsRelativeInventory.get(importedModuleRoot);
+    if (!rootExternalNode) throw new Error(`Can't find ${importedModuleRoot} in tree`);
     externalNodes.add(rootExternalNode);
     const nodes = findAllNodeChildren(rootExternalNode.edgesOut, childrenFilter, options);
     for (const node of nodes) externalNodes.add(node);
