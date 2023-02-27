@@ -167,14 +167,20 @@ const rollupPlugin = (
         originalImports.push(...imports);
       }
       const imports = new Set<string>(resolvedConfig.packaging?.forceIncludeModuleRoots || []);
-      for (const originalImport of originalImports) {
-        if (builtinModules.includes(originalImport)) continue;
+      for (const originalImportee of originalImports) {
+        /** should likely never be true */
+        const isOriginalImporteePath = originalImportee.startsWith("/");
+        if (isOriginalImporteePath) continue;
+
+        const { importeeModuleId } = analyzeImporteeName(originalImportee);
+        if (builtinModules.includes(importeeModuleId)) continue;
+
         /** e.g. pkg3 or pkg2/node_modules/pkg3, but no path imports */
-        const originalImportModuleRoot = extractModuleRootFromImport(originalImport);
+        const originalImportModuleRoot = extractModuleRootFromImport(originalImportee);
         if (resolvedConfig.packaging?.exclude?.includes(originalImportModuleRoot)) continue;
         const node = graphsInventory.get(`node_modules/${originalImportModuleRoot}`);
         if (!node) {
-          this.warn(`No module found for: ${prettyJson(originalImport)}`);
+          this.warn(`No module found for: ${prettyJson(originalImportee)}`);
           continue;
         }
         if (node.path === mainRoot) continue;
