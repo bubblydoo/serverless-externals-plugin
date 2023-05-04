@@ -61,6 +61,7 @@ export const isConfigReport = (
   return "isReport" in config && config.isReport;
 };
 
+/** root is the workspaces root, packageName is the name of the package in the root */
 export const buildDependencyGraph = async (root: string) => {
   const arb = new Arborist({
     path: path.resolve(root),
@@ -70,7 +71,8 @@ export const buildDependencyGraph = async (root: string) => {
 };
 
 export const buildExternalDependencyListFromReport = async (
-  graphs: RelativeGraph[],
+  graph: Graph,
+  serviceRoot: string,
   report: ExternalsReport,
   childrenFilter: (edge: Edge) => boolean = () => true,
   moduleFilter: (node: NodeOrLink) => boolean = () => true,
@@ -78,10 +80,11 @@ export const buildExternalDependencyListFromReport = async (
 ) => {
   const externalNodes = new Set<NodeOrLink>();
 
-  const graphsRelativeInventory = mergeMaps(graphs.map((g) => g.relativeInventory));
+  // const graphsRelativeInventory = mergeMaps(graphs.map((g) => g.relativeInventory));
 
   for (const importedModuleRoot of report.importedModuleRoots) {
-    const rootExternalNode = graphsRelativeInventory.get(importedModuleRoot);
+    const relativeImportedModuleRoot = path.relative(graph.path, path.resolve(serviceRoot, importedModuleRoot));
+    const rootExternalNode = graph.inventory.get(relativeImportedModuleRoot);
     if (!rootExternalNode) throw new Error(`Can't find ${importedModuleRoot} in tree`);
     externalNodes.add(rootExternalNode);
     const nodes = findAllNodeChildren(rootExternalNode.edgesOut, childrenFilter, options);
@@ -171,7 +174,8 @@ const verifyEdge = (edge: Edge, warn?: (str: string) => void) => {
     warn?.(`Dependency is missing, skipping:\n${prettyJson(edge)}`);
     return false;
   }
-  if (edge.invalid) {
+  // this protocol is only supported by yarn
+  if (edge.invalid && !edge.spec.startsWith('workspace:*') ) {
     warn?.(`Dependency is invalid, skipping:\n${prettyJson(edge)}`);
     return false;
   }
@@ -196,19 +200,18 @@ const doesNodePairMatchConfig = (modules: string[], from: NodeOrLink, to: NodeOr
   });
 };
 
-export function makeInventoryRelative(inventory: Graph["inventory"], mainRoot: string, root: string) {
-  if (mainRoot === root) return inventory;
-  const diff = path.relative(mainRoot, root);
-  return new Map([...inventory.entries()].map(([k, v]) => [path.join(diff, k), v]));
-}
+// export function makeInventoryRelative(inventory: Graph["inventory"], mainRoot: string, root: string) {
+//   if (mainRoot === root) return inventory;
+//   const diff = path.relative(mainRoot, root);
+//   return new Map([...inventory.entries()].map(([k, v]) => [path.join(diff, k), v]));
+// }
 
-export type RelativeGraph = { orig: Graph, relativeInventory: Graph["inventory"] };
+// export type RelativeGraph = { orig: Graph, relativeInventory: Graph["inventory"] };
 
-export async function buildRelativeDependencyGraphs(roots: string[], mainRoot: string) {
-  const graphs: RelativeGraph[] = await Promise.all(roots.map(async (root) => {
-    const orig = await buildDependencyGraph(root);
-    const relativeInventory = makeInventoryRelative(orig.inventory, mainRoot, root);
-    return { orig, relativeInventory };
-  }));
-  return graphs;
-}
+// export async function buildRelativeDependencyGraphs(root: string, workspaceName?: string) {
+//   const graph = await buildDependencyGraph(root, workspaceName);
+//   return graph;
+//   // const relativeInventory = makeInventoryRelative(orig.inventory, workspacesRoot, root);
+//   // const graph: RelativeGraph = { orig };
+//   // return graph;
+// }

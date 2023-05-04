@@ -276,12 +276,13 @@ If your serverless project is a workspace within a larger monorepo, this is also
 For example, in `apps/lambdas/rollup.config.js`:
 
 ```js
-const roots = [__dirname, path.resolve(__dirname, "../..")];
+const root = path.resolve(__dirname, "../..")
+const workspaceName = "main-app"
 
 ...
 
 plugins: [
-  externals(roots, { modules: ["undici"] }),
+  externals([root, workspaceName], { modules: ["undici"] }),
   ...
 ]
 ```

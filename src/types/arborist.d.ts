@@ -51,6 +51,7 @@ declare module "@npmcli/arborist" {
 
   export class Graph extends Node {
     inventory: Map<string, NodeOrLink>;
+    workspaces: Map<string, NodeOrLink>;
   }
 
   export class Arborist {

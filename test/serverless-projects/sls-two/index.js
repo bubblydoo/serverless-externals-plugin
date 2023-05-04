@@ -7,7 +7,7 @@ module.exports = {
   },
   devOnly: async () => {
     console.log({
-      pkg5devonly: await import("pkg5/dev-only"),
+      pkg5devonly: await import("pkg5/dev-only.js"),
     });
   }
 }

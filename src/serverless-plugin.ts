@@ -1,4 +1,4 @@
-import { NodeOrLink } from "@npmcli/arborist";
+import { Graph, NodeOrLink } from "@npmcli/arborist";
 import path from "path";
 import Serverless, { Options } from "serverless";
 import Plugin, { Hooks } from "serverless/classes/Plugin.js";
@@ -7,9 +7,8 @@ import {
   ExternalsConfig,
   ExternalsReport,
   ExternalsReportRef,
-  RelativeGraph,
   resolveExternalsReport,
-  buildRelativeDependencyGraphs,
+  buildDependencyGraph,
 } from "./core.js";
 import { dependenciesChildrenFilter } from "./default-filter.js";
 
@@ -116,10 +115,10 @@ class ExternalsPlugin implements Plugin {
     }
 
     const roots = report.nodeModulesTreePaths.map((r) => path.resolve(serviceRoot, r, '..'));
+    const isInWorkspace = roots.length > 1;
+    const graph = await buildDependencyGraph(isInWorkspace ? roots[1] : serviceRoot);
 
-    const graphs = await buildRelativeDependencyGraphs(roots, serviceRoot);
-
-    const dependencyList = await buildExternalDependencyListFromReportHelper(report, graphs);
+    const dependencyList = await buildExternalDependencyListFromReportHelper(report, graph, serviceRoot);
 
     this.log(
       `Setting package patterns for ${logSubject} for ${dependencyList.size} external modules`
@@ -263,10 +262,12 @@ const getModuleFilter = (resolvedConfig: ExternalsConfig) => {
 
 const buildExternalDependencyListFromReportHelper = async (
   report: ExternalsReport,
-  graphs: RelativeGraph[]
+  graph: Graph,
+  serviceRoot: string
 ) => {
   return await buildExternalDependencyListFromReport(
-    graphs,
+    graph,
+    serviceRoot,
     report,
     dependenciesChildrenFilter,
     getModuleFilter(report.config),
