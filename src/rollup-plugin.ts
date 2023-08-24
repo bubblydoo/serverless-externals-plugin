@@ -47,6 +47,9 @@ const rollupPlugin = (
     name: "serverless-externals-plugin",
     async buildStart() {
       graph = await buildDependencyGraph(rootPath);
+      if (workspaceName && !graph.workspaces.has(workspaceName)) {
+        this.error(`No workspace found for: ${workspaceName}`);
+      }
       main = workspaceName ? resolveLink(graph.edgesOut.get(workspaceName).to) : graph;
       if (workspaceName) {
         const relativeMainInventory = relativeInventoryFromNode(main);
@@ -193,6 +196,7 @@ const rollupPlugin = (
         if (resolvedConfig.packaging?.exclude?.includes(originalImportModuleRoot)) continue;
         const node = mergedInventory.get(`node_modules/${originalImportModuleRoot}`);
         if (!node) {
+          if (originalImportee.startsWith("node:")) continue;
           this.warn(`No module found for: ${prettyJson(originalImportee)}`);
           continue;
         }
