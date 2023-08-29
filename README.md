@@ -168,14 +168,15 @@ const config = {
   output: {
     file: "bundle.js",
     format: "cjs",
-    exports: "default",
+    exports: "named",
+    dynamicImportInCjs: false,
   },
   treeshake: {
     moduleSideEffects: "no-external",
   },
   plugins: [
     externals(__dirname, { modules: ["aws-sdk"], packaging: { exclude: ["aws-sdk"] } }),
-    commonjs({ strictMode: true }),
+    commonjs({ strictMode: true, ignoreDynamicRequires: true }),
     nodeResolve({ preferBuiltins: true, exportConditions: ["node"] }),
   ],
 };
@@ -268,6 +269,14 @@ commonjs({ ignoreDynamicRequires: true }),
 This will make sure the `require` call is not changed.
 
 Another solution is to add `knex` to the list of externals. In that case the whole `node_modules/knex` folder will be uploaded, and none of its code will be transformed.
+
+Rollup sometimes keeps `await import` expressions in the bundle, which might cause import issues if the module is not commonjs. To fix this, you can add the following to your `rollup.config.js`:
+
+```js
+output: {
+  dynamicImportInCjs: false
+}
+```
 
 ## Usage in monorepos/workspaces
 
